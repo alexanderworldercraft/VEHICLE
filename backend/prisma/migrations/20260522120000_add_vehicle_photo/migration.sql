@@ -1,0 +1,1 @@
+ALTER TABLE `Vehicule` ADD COLUMN `Photo` VARCHAR(255) NULL;

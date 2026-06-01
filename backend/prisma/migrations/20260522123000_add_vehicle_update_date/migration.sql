@@ -1,0 +1,1 @@
+ALTER TABLE `Vehicule` ADD COLUMN `UpdateDate` DATETIME(3) NULL;

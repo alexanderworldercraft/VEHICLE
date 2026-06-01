@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Etat {
+  EtatID       Int           @id @default(autoincrement())
+  Nom          String        @db.VarChar(100)
+  CreateDate   DateTime      @default(now())
+  UpdateDate   DateTime?
+  vehicules    Vehicule[]
+  Utilisateurs Utilisateur[] // Relation avec les utilisateurs
+}
+
+model Type {
+  TypeID     Int        @id @default(autoincrement())
+  Nom        String     @db.VarChar(100)
+  CreateDate DateTime   @default(now())
+  UpdateDate DateTime?
+  vehicules  Vehicule[]
+}
+
+model Marque {
+  MarqueID   Int        @id @default(autoincrement())
+  Nom        String     @db.VarChar(100)
+  CreateDate DateTime   @default(now())
+  UpdateDate DateTime?
+  vehicules  Vehicule[]
+}
+
+model Carburant {
+  CarburantID Int       @id @default(autoincrement())
+  Nom         String    @db.VarChar(100)
+  Couleur     String    @db.VarChar(50)
+  CreateDate  DateTime  @default(now())
+  UpdateDate  DateTime?
+  releves     Relever[]
+}
+
+model Vehicule {
+  VehiculeID          Int                 @id @default(autoincrement())
+  Nom                 String              @db.VarChar(100)
+  Modele              String?             @db.VarChar(100)
+  Immatriculation     String              @db.VarChar(20)
+  DateImmatriculation DateTime            @db.Date
+  MarqueID            Int
+  TypeID              Int
+  EtatID              Int
+  UtilisateurID       Int
+  Photo               String?             @db.VarChar(255)
+  CreateDate          DateTime            @default(now())
+  UpdateDate          DateTime?
+  releves             Relever[]
+  EntretienPlanifies  EntretienPlanifie[]
+  EntretienRealises   EntretienRealise[]
+  Etat                Etat                @relation(fields: [EtatID], references: [EtatID])
+  Marque              Marque              @relation(fields: [MarqueID], references: [MarqueID])
+  Type                Type                @relation(fields: [TypeID], references: [TypeID])
+  utilisateur         Utilisateur         @relation(fields: [UtilisateurID], references: [UtilisateurID])
+
+  @@index([EtatID], map: "Vehicule_EtatID_fkey")
+  @@index([MarqueID], map: "Vehicule_MarqueID_fkey")
+  @@index([TypeID], map: "Vehicule_TypeID_fkey")
+  @@index([UtilisateurID], map: "Vehicle_utilisateurID_fkey")
+}
+
+model Relever {
+  ReleverID         Int       @id @default(autoincrement())
+  VehiculeID        Int
+  CarburantID       Int
+  Date              DateTime
+  Kilometre         Float
+  Consommation      Float?
+  PrixLitre         Float
+  PrixTotal         Float
+  LitreTotal        Float
+  InclinaisonGauche Float?
+  InclinaisonDroite Float?
+  CreateDate        DateTime  @default(now())
+  UpdateDate        DateTime?
+  Carburant         Carburant @relation(fields: [CarburantID], references: [CarburantID])
+  Vehicule          Vehicule  @relation(fields: [VehiculeID], references: [VehiculeID])
+
+  @@index([CarburantID], map: "Relever_CarburantID_fkey")
+  @@index([VehiculeID], map: "Relever_VehiculeID_fkey")
+}
+
+model CategorieEntretien {
+  CategorieEntretienID Int       @id @default(autoincrement())
+  Nom                  String    @db.VarChar(100)
+  Couleur              String    @db.VarChar(50)
+  Icone                String?   @db.VarChar(100)
+  CreateDate           DateTime  @default(now())
+  UpdateDate           DateTime?
+
+  EntretienTypes EntretienType[]
+}
+
+model EntretienType {
+  EntretienTypeID Int       @id @default(autoincrement())
+  Nom             String    @db.VarChar(100)
+  Description     String?   @db.VarChar(255)
+  CreateDate      DateTime  @default(now())
+  UpdateDate      DateTime?
+
+  CategorieEntretienID Int
+  CategorieEntretien   CategorieEntretien @relation(fields: [CategorieEntretienID], references: [CategorieEntretienID])
+
+  EntretienPlanifies EntretienPlanifie[]
+  EntretienRealises  EntretienRealise[]
+
+  @@index([CategorieEntretienID], map: "EntretienType_CategorieEntretienID_fkey")
+}
+
+model EntretienPlanifie {
+  EntretienPlanifieID Int @id @default(autoincrement())
+
+  VehiculeID      Int
+  EntretienTypeID Int
+
+  DatePrevue     DateTime?
+  KilometrePrevu Float?
+
+  Priorite String? @db.VarChar(50)
+  Note     String? @db.VarChar(255)
+
+  EstRealise Boolean   @default(false)
+  CreateDate DateTime  @default(now())
+  UpdateDate DateTime?
+
+  Vehicule          Vehicule           @relation(fields: [VehiculeID], references: [VehiculeID])
+  EntretienType     EntretienType      @relation(fields: [EntretienTypeID], references: [EntretienTypeID])
+  EntretienRealises EntretienRealise[]
+  EntretienFichiers EntretienFichier[]
+
+  @@index([VehiculeID], map: "EntretienPlanifie_VehiculeID_fkey")
+  @@index([EntretienTypeID], map: "EntretienPlanifie_EntretienTypeID_fkey")
+}
+
+model EntretienRealise {
+  EntretienRealiseID Int @id @default(autoincrement())
+
+  VehiculeID          Int
+  EntretienTypeID     Int
+  EntretienPlanifieID Int?
+
+  Date      DateTime
+  Kilometre Float?
+  Cout      Float?
+  Garage    String?  @db.VarChar(150)
+  Note      String?  @db.VarChar(500)
+
+  CreateDate DateTime  @default(now())
+  UpdateDate DateTime?
+
+  Vehicule          Vehicule           @relation(fields: [VehiculeID], references: [VehiculeID])
+  EntretienType     EntretienType      @relation(fields: [EntretienTypeID], references: [EntretienTypeID])
+  EntretienPlanifie EntretienPlanifie? @relation(fields: [EntretienPlanifieID], references: [EntretienPlanifieID])
+  EntretienFichiers EntretienFichier[]
+
+  @@index([VehiculeID], map: "EntretienRealise_VehiculeID_fkey")
+  @@index([EntretienTypeID], map: "EntretienRealise_EntretienTypeID_fkey")
+  @@index([EntretienPlanifieID], map: "EntretienRealise_EntretienPlanifieID_fkey")
+}
+
+model EntretienFichier {
+  EntretienFichierID  Int      @id @default(autoincrement())
+  EntretienPlanifieID Int?
+  EntretienRealiseID  Int?
+  NomOriginal         String   @db.VarChar(255)
+  NomStockage         String   @db.VarChar(255)
+  TypeMime            String   @db.VarChar(100)
+  TailleOctets        BigInt
+  Categorie           String?  @db.VarChar(50)
+  Chemin              String   @db.VarChar(500)
+  CreateDate          DateTime @default(now())
+  UpdateDate          DateTime @updatedAt
+
+  EntretienPlanifie EntretienPlanifie? @relation(fields: [EntretienPlanifieID], references: [EntretienPlanifieID])
+  EntretienRealise  EntretienRealise?  @relation(fields: [EntretienRealiseID], references: [EntretienRealiseID])
+
+  @@index([EntretienPlanifieID], map: "EntretienFichier_EntretienPlanifieID_fkey")
+  @@index([EntretienRealiseID], map: "EntretienFichier_EntretienRealiseID_fkey")
+}
+
+model Grade {
+  GradeID      Int           @id @default(autoincrement())
+  Nom          String        @unique @db.VarChar(50) // Ex. "Admin", "Utilisateur"
+  CreateDate   DateTime      @default(now())
+  UpdateDate   DateTime?
+  Utilisateurs Utilisateur[] // Relation avec les utilisateurs
+}
+
+model Utilisateur {
+  UtilisateurID Int        @id @default(autoincrement())
+  Surnom        String     @unique
+  MotDePasse    String     @db.VarChar(255)
+  CheminImage   String?    @db.VarChar(255)
+  Email         String     @db.VarChar(100)
+  Vehicules     Vehicule[]
+  Salt          String     @db.VarChar(255)
+  GradeID       Int // Clé étrangère vers Grade
+  EtatID        Int
+  CreateDate    DateTime   @default(now())
+  UpdateDate    DateTime?
+  Grade         Grade      @relation(fields: [GradeID], references: [GradeID]) // Relation avec Grade
+  Etat          Etat       @relation(fields: [EtatID], references: [EtatID]) // Relation avec Etat
+
+  @@index([GradeID], map: "Utilisateur_GradeID_fkey") // Index pour optimiser les recherches par grade
+  @@index([EtatID], map: "Utilisateur_EtatID_fkey") // Index pour optimiser les recherches par grade
+}

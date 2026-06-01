@@ -1,0 +1,1 @@
+ALTER TABLE `Relever` ADD COLUMN `UpdateDate` DATETIME(3) NULL;
