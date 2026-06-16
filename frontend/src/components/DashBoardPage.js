@@ -30,6 +30,19 @@ const getDistanceForIndex = (releves, index) => {
   return distance > 0 ? distance : null;
 };
 
+const getMedian = (values = []) => {
+  const sortedValues = values
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  if (sortedValues.length === 0) return null;
+
+  const middleIndex = Math.floor(sortedValues.length / 2);
+  return sortedValues.length % 2 === 0
+    ? (sortedValues[middleIndex - 1] + sortedValues[middleIndex]) / 2
+    : sortedValues[middleIndex];
+};
+
 const getAverageStats = (releves = []) => {
   const firstKilometer = Number(releves[0]?.Kilometre);
   const lastKilometer = Number(releves[releves.length - 1]?.Kilometre);
@@ -37,19 +50,17 @@ const getAverageStats = (releves = []) => {
     ? lastKilometer - firstKilometer
     : null;
 
-  const intervalStats = releves.reduce((acc, releve, index) => {
+  const intervalValues = releves.reduce((acc, releve, index) => {
     const distance = getDistanceForIndex(releves, index);
     if (!distance) return acc;
 
     const litres = Number(releve.LitreTotal);
-    if (Number.isFinite(litres) && litres > 0) acc.litres += litres;
-    acc.distance += distance;
-    acc.intervals += 1;
+    acc.distances.push(distance);
+    if (Number.isFinite(litres) && litres > 0) acc.consumptions.push((litres / distance) * 100);
     return acc;
   }, {
-    distance: 0,
-    intervals: 0,
-    litres: 0,
+    distances: [],
+    consumptions: [],
   });
 
   const fuelStats = releves.reduce((acc, releve) => {
@@ -62,15 +73,11 @@ const getAverageStats = (releves = []) => {
 
   return {
     declaredKilometers,
-    averageConsumption: intervalStats.distance > 0 && intervalStats.litres > 0
-      ? (intervalStats.litres / intervalStats.distance) * 100
-      : null,
+    medianConsumption: getMedian(intervalValues.consumptions),
     averagePricePerLiter: fuelStats.litres > 0
       ? fuelStats.cost / fuelStats.litres
       : null,
-    averageDistancePerReleve: intervalStats.intervals > 0
-      ? intervalStats.distance / intervalStats.intervals
-      : null,
+    medianDistancePerReleve: getMedian(intervalValues.distances),
   };
 };
 
@@ -136,16 +143,16 @@ const VehicleDashboardCard = ({ vehicleDetails }) => {
                 <p className="mt-1 text-xs text-slate-400">km déclarés</p>
               </div>
               <div>
-                <p className="text-2xl font-semibold text-slate-50">{formatNumber(roundPrivacyNumber(averageStats.averageConsumption, isShieldModeLevel2 ? 'consumption' : undefined), isShieldModeLevel2 ? 0 : 2)}</p>
-                <p className="mt-1 text-xs text-slate-400">L/100km moyen</p>
+                <p className="text-2xl font-semibold text-slate-50">{formatNumber(roundPrivacyNumber(averageStats.medianConsumption, isShieldModeLevel2 ? 'consumption' : undefined), isShieldModeLevel2 ? 0 : 2)}</p>
+                <p className="mt-1 text-xs text-slate-400">L/100km médian</p>
               </div>
               <div>
                 <p className="text-2xl font-semibold text-slate-50">{formatNumber(roundPrivacyNumber(averageStats.averagePricePerLiter, isShieldModeLevel2 ? 'price' : undefined), isShieldModeLevel2 ? 0 : 2)} €</p>
                 <p className="mt-1 text-xs text-slate-400">Prix moyen/L</p>
               </div>
               <div>
-                <p className="text-2xl font-semibold text-slate-50">{formatNumber(roundPrivacyNumber(averageStats.averageDistancePerReleve, isShieldModeLevel2 ? 'kilometers' : undefined), 0)}</p>
-                <p className="mt-1 text-xs text-slate-400">km moyen/relevé</p>
+                <p className="text-2xl font-semibold text-slate-50">{formatNumber(roundPrivacyNumber(averageStats.medianDistancePerReleve, isShieldModeLevel2 ? 'kilometers' : undefined), 0)}</p>
+                <p className="mt-1 text-xs text-slate-400">km médian/relevé</p>
               </div>
             </div>
           </div>
