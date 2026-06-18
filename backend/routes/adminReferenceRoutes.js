@@ -1,4 +1,5 @@
 import { adminReferenceController } from "../controllers/adminReferenceController.js";
+import { adminBackupController } from "../controllers/adminBackupController.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { shieldModeMiddleware } from "../middlewares/shieldModeMiddleware.js";
 
@@ -13,4 +14,9 @@ export default async function adminReferenceRoutes(fastify, options) {
   fastify.post("/reference-data/:resource", { preHandler: adminPreHandlers }, adminReferenceController.create);
   fastify.put("/reference-data/:resource/:id", { preHandler: adminPreHandlers }, adminReferenceController.update);
   fastify.delete("/reference-data/:resource/:id", { preHandler: adminPreHandlers }, adminReferenceController.remove);
+  fastify.post(
+    "/backup/manual",
+    { preHandler: [authMiddleware, adminBackupController.ensureSuperAdmin] },
+    adminBackupController.createManualBackup
+  );
 }
