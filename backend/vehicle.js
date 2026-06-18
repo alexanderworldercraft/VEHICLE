@@ -13,8 +13,8 @@ import { prisma as db } from "./services/db.js";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUI from "@fastify/swagger-ui";
 import { Server as SocketIOServer } from "socket.io"; 
-import { exec } from 'child_process';
 import cron from 'node-cron';
+import { createDatabaseBackup, ensureBackupDir } from './services/backupService.js';
 
 // URL publique
 const PUBLIC_URL = process.env.PUBLIC_URL;
@@ -100,6 +100,7 @@ fastify.register(fastifyCors, {
     origin: PUBLIC_URL, // Autoriser les requêtes depuis cette origine
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
+    exposedHeaders: ['Content-Disposition', 'X-Backup-Filename'],
 });
 
 // Enregistrement du plugin multipart
@@ -154,39 +155,19 @@ setInterval(keepDatabaseAlive, 25200000);
 
 
 
-// Configuration de la base de données pour la sauvegarde
-const DB_HOST = process.env.DB_HOST;
-const DB_USER = process.env.DB_USER;
-const DB_PASSWORD = process.env.DB_PASSWORD;
-const DB_NAME = process.env.DB_NAME;
-const BACKUP_DIR = path.join(__dirname, 'uploads/BDD');
-
 // Assurez-vous que le dossier de sauvegarde existe
-if (!fs.existsSync(BACKUP_DIR)) {
-    fs.mkdirSync(BACKUP_DIR);
-}
+ensureBackupDir().catch((error) => {
+    fastify.log.error(`Erreur lors de la création du dossier de sauvegarde : ${error.message}`);
+});
 
 // Fonction pour créer une sauvegarde de la base de données
-function backupDatabase() {
-    const timestamp = new Date();
-    const year = timestamp.getFullYear();
-    const month = String(timestamp.getMonth() + 1).padStart(2, '0');
-    const day = String(timestamp.getDate()).padStart(2, '0');
-    const backupFile = path.join(BACKUP_DIR, `BDD_${DB_NAME}_${year}-${month}-${day}.sql`);
-
-    const command = `mysqldump -h ${DB_HOST} -u ${DB_USER} -p${DB_PASSWORD} ${DB_NAME} > ${backupFile}`;
-
-    exec(command, (error, stdout, stderr) => {
-        if (error) {
-            fastify.log.error(`Erreur lors de la sauvegarde : ${error.message}`);
-            return;
-        }
-        if (stderr) {
-            fastify.log.error(`Erreur stderr : ${stderr}`);
-            return;
-        }
-        fastify.log.info(`Sauvegarde créée avec succès : ${backupFile}`);
-    });
+async function backupDatabase() {
+    try {
+        const { filePath } = await createDatabaseBackup();
+        fastify.log.info(`Sauvegarde créée avec succès : ${filePath}`);
+    } catch (error) {
+        fastify.log.error(`Erreur lors de la sauvegarde : ${error.message}`);
+    }
 }
 
 // Planifier la tâche hebdomadaire

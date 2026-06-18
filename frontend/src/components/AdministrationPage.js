@@ -1,15 +1,31 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import FormNewAdmin from "./FormNewAdmin";
 import AdminList from "./AdminList";
 import UserList from "./UserList";
 import ReferenceDataAdmin from "./ReferenceDataAdmin";
+import ManualBackupAdmin from "./ManualBackupAdmin";
+import api from "../services/api";
 
 const AdministrationPage = () => {
     const [reload, setReload] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
 
     const handleStateChange = () => {
         setReload((prev) => !prev);
     };
+
+    useEffect(() => {
+        const fetchCurrentUser = async () => {
+            try {
+                const response = await api.get("/users/me");
+                setCurrentUser(response.data);
+            } catch (error) {
+                setCurrentUser(null);
+            }
+        };
+
+        fetchCurrentUser();
+    }, []);
 
     return (
         <main className="mx-auto max-w-7xl grow">
@@ -23,6 +39,8 @@ const AdministrationPage = () => {
                     <FormNewAdmin />
                     <AdminList />
                 </section>
+
+                {currentUser?.GradeID === 1 && <ManualBackupAdmin />}
 
                 <section>
                     <div className="mb-4">

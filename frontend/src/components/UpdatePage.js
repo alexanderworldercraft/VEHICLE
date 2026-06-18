@@ -10,8 +10,48 @@ import {
 const appName = process.env.REACT_APP_NAME || "Vehicle";
 const appVersion = process.env.REACT_APP_VER || "0.0.0";
 
-const latestUpdateResume = "remplace les moyennes sensibles aux releves aberrants par des medianes plus representatives.";
+const latestUpdateResume = "ajoute une sauvegarde manuelle double copie reservee au superadmin.";
 const updates = [
+  {
+    version: "1.15.3",
+    title: "Sauvegarde manuelle superadmin",
+    date: "18 juin 2026",
+    sections: [
+      {
+        title: "Administration",
+        items: [
+          "Ajout d'un bloc Sauvegarde manuelle sur la page Administration, visible uniquement par le superadmin.",
+          "Ajout d'un champ de confirmation par mot de passe avant de lancer la sauvegarde.",
+          "Affichage d'un retour utilisateur clair lorsque la sauvegarde est creee ou lorsque le mot de passe est incorrect.",
+        ],
+      },
+      {
+        title: "Double copie",
+        items: [
+          "Creation d'une sauvegarde SQL dans uploads/BDD avec un nom date et heure pour eviter d'ecraser une sauvegarde du meme jour.",
+          "Telechargement automatique de la meme sauvegarde afin de disposer rapidement d'une copie hors serveur.",
+          "Exposition du nom du fichier de sauvegarde dans les headers CORS pour fiabiliser le nom du fichier telecharge.",
+        ],
+      },
+      {
+        title: "Securite et backend",
+        items: [
+          "Ajout d'une route API dediee protegee par JWT et limitee au GradeID superadmin.",
+          "Revalidation du mot de passe de l'utilisateur connecte avant l'execution de mysqldump.",
+          "Extraction de la logique de sauvegarde dans un service reutilise par la sauvegarde automatique hebdomadaire et la sauvegarde manuelle.",
+          "Suppression automatique du fichier incomplet si mysqldump echoue pendant la creation de la sauvegarde.",
+        ],
+      },
+      {
+        title: "Validation",
+        items: [
+          "Validation syntaxique des fichiers backend modifies.",
+          "Validation du build frontend apres l'ajout de l'interface de sauvegarde.",
+          "Conservation des warnings existants du projet sans ajout de nouveau warning lie aux changements.",
+        ],
+      },
+    ],
+  },
   {
     version: "1.15.2",
     title: "Statistiques medianes des releves",
