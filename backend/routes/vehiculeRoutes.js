@@ -5,6 +5,7 @@ import { shieldModeMiddleware } from '../middlewares/shieldModeMiddleware.js';
 export default async function userRoutes(fastify, options) {
   fastify.get('/:UtilisateurID', vehiculeController.getAllVehicule); // Liste les véhicules de l'utilisateur
   fastify.get('/:UtilisateurID/sold', vehiculeController.getAllSoldVehicule); // Liste les véhicules vendu de l'utilisateur
+  fastify.get('/:UtilisateurID/statistiques', vehiculeController.getUserVehicleStatistics); // Liste les statistiques de tous les véhicules de l'utilisateur
   fastify.get('/:UtilisateurID/:VehiculeID', vehiculeController.getVehicleDetails); // Liste les détails du véhicule de l'utilisateur
   fastify.get('/:UtilisateurID/cost/simulation/rolling', vehiculeController.getCostSimulationRolling); // Liste les détails du véhicule de l'utilisateur pour simulé les coût de roulage
   fastify.get('/type', vehiculeController.getAllTypeVehicule); // Liste les types de véhicule

@@ -541,6 +541,105 @@ export const vehiculeController = {
       reply.status(500).send({ error: "Erreur lors de la récupération des détails du véhicule." });
     }
   },
+  // Liste les statistiques des véhicules de l'utilisateur
+  async getUserVehicleStatistics(request, reply) {
+    const { UtilisateurID } = request.params;
+    const includeSold = request.query?.includeSold === 'true';
+    console.log(`"getUserVehicleStatistics" a été appelé par l'Utilisateur "${UtilisateurID}" avec includeSold="${includeSold}".`);
+
+    try {
+      const allowedEtatIDs = includeSold ? [1, 4] : [1];
+      const vehicules = await prisma.vehicule.findMany({
+        where: {
+          UtilisateurID: parseInt(UtilisateurID),
+          EtatID: { in: allowedEtatIDs },
+        },
+        orderBy: { VehiculeID: "desc" },
+        select: {
+          VehiculeID: true,
+          Nom: true,
+          EtatID: true,
+          releves: {
+            orderBy: [
+              { Date: 'asc' },
+              { Kilometre: 'asc' },
+            ],
+            select: {
+              ReleverID: true,
+              VehiculeID: true,
+              CarburantID: true,
+              Consommation: true,
+              Date: true,
+              Kilometre: true,
+              PrixLitre: true,
+              PrixTotal: true,
+              LitreTotal: true,
+              CreateDate: true,
+              UpdateDate: true,
+              Carburant: {
+                select: {
+                  Nom: true,
+                  Couleur: true,
+                },
+              },
+            },
+          },
+          EntretienRealises: {
+            orderBy: [
+              { Date: 'asc' },
+              { Kilometre: 'asc' },
+            ],
+            select: {
+              EntretienRealiseID: true,
+              VehiculeID: true,
+              Date: true,
+              Kilometre: true,
+              Cout: true,
+              EntretienType: {
+                select: {
+                  Nom: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const releverDetails = vehicules.flatMap((vehicule) => (
+        vehicule.releves.map((releve) => ({
+          ...releve,
+          Vehicule: {
+            VehiculeID: vehicule.VehiculeID,
+            Nom: vehicule.Nom,
+            EtatID: vehicule.EtatID,
+          },
+        }))
+      ));
+      const entretienRealises = vehicules.flatMap((vehicule) => (
+        vehicule.EntretienRealises.map((entretien) => ({
+          ...entretien,
+          Vehicule: {
+            VehiculeID: vehicule.VehiculeID,
+            Nom: vehicule.Nom,
+            EtatID: vehicule.EtatID,
+          },
+        }))
+      ));
+
+      reply.send({
+        vehicles: vehicules.map(({ releves, EntretienRealises, ...vehicule }) => ({
+          ...vehicule,
+          relevesCount: releves.length,
+          entretienRealisesCount: EntretienRealises.length,
+        })),
+        releverDetails,
+        entretienRealises,
+      });
+    } catch (error) {
+      console.error("Erreur lors de la récupération des statistiques des véhicules :", error);
+      reply.status(500).send({ error: "Erreur lors de la récupération des statistiques des véhicules." });
+    }
+  },
   // Liste les types de véhicule
   async getAllTypeVehicule(request, reply) {
     console.log(`"getAllTypeVehicule" à été appeler.`);

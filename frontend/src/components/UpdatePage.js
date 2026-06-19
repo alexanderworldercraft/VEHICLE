@@ -10,8 +10,68 @@ import {
 const appName = process.env.REACT_APP_NAME || "Vehicle";
 const appVersion = process.env.REACT_APP_VER || "0.0.0";
 
-const latestUpdateResume = "ajoute une sauvegarde manuelle double copie reservee au superadmin.";
+const latestUpdateResume = "ajoute une page Statistiques globale avec graphiques multi-vehicules.";
 const updates = [
+  {
+    version: "1.16.0",
+    title: "Page Statistiques globale",
+    date: "19 juin 2026",
+    sections: [
+      {
+        title: "Nouvelle page",
+        items: [
+          "Ajout de la page /statistiques dans le style sombre de la page Vehicule.",
+          "Activation de l'entree Statistiques dans la navigation laterale et ajout des metadonnees de page.",
+          "Ajout d'un toggle permettant d'inclure ou non les vehicules vendus dans le perimetre des statistiques.",
+        ],
+      },
+      {
+        title: "Kilometrage",
+        items: [
+          "Ajout d'un graphique Kilometrage avec une ligne distincte par vehicule pour comparer les evolutions.",
+          "Correction du tri chronologique global afin que les releves recents ne soient plus places avant des releves plus anciens.",
+          "Ajout d'un basculement entre la vue Km total des releves et la vue Km parcourus cumules depuis 0 pour chaque vehicule.",
+        ],
+      },
+      {
+        title: "Carburant et couts",
+        items: [
+          "Ajout de la repartition des carburants sur l'ensemble des releves du perimetre selectionne.",
+          "Ajout d'une legende de donut enrichie avec barres de progression et pourcentage par carburant.",
+          "Ajout de la section Evolution du prix du carburant reutilisant le graphique existant par carburant.",
+          "Ajout des cartes Depense totale essence et Cout median / 100km.",
+          "Ajout des classements Vehicule le moins cher et Vehicule le plus gourmand bases sur les intervalles entre releves.",
+          "Conservation de l'affichage compatible Shield Mode pour les valeurs sensibles.",
+        ],
+      },
+      {
+        title: "Classements",
+        items: [
+          "Ajout du Vehicule le plus utilise selon les kilometres parcourus entre releves.",
+          "Ajout du Vehicule le moins cher selon le cout median au 100 km.",
+          "Ajout du Vehicule le plus gourmand selon la consommation mediane en L/100 km.",
+          "Reorganisation des indicateurs en groupes principaux et secondaires avec styles differencies.",
+        ],
+      },
+      {
+        title: "Entretiens",
+        items: [
+          "Extension de l'API statistiques pour recuperer les entretiens realises des vehicules inclus.",
+          "Ajout des cartes Depense totale entretiens et Entretiens realises.",
+          "Alignement des statistiques d'entretien sur le meme filtre actifs/vendus que les releves.",
+        ],
+      },
+      {
+        title: "API et validation",
+        items: [
+          "Ajout de la route API /api/vehicule/:UtilisateurID/statistiques avec le parametre includeSold.",
+          "Aggregation cote backend des vehicules, releves et entretiens realises de l'utilisateur actif.",
+          "Validation syntaxique du controleur backend modifie.",
+          "Validation du build frontend apres l'ajout de la page, des graphiques et des cartes.",
+        ],
+      },
+    ],
+  },
   {
     version: "1.15.3",
     title: "Sauvegarde manuelle superadmin",

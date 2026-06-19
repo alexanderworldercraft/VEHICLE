@@ -16,6 +16,7 @@ import ReleverPage from './components/ReleverPage';
 import SimulationPage from './components/SimulationPage';
 import UpdatePage from './components/UpdatePage';
 import EntretienPage from './components/EntretienPage';
+import StatisticsPage from './components/StatisticsPage';
 import { usePrivacy } from './privacy/PrivacyContext';
 
 //import NotProtectedRoute from './components/NotProtectedRoute';
@@ -64,6 +65,10 @@ const routesMeta = {
   "/entretien": {
     title: `Entretien - ${NameApp}`,
     description: `Planifiez et suivez les entretiens de vos véhicules dans ${NameApp}.`,
+  },
+  "/statistiques": {
+    title: `Statistiques - ${NameApp}`,
+    description: `Consultez les statistiques globales de vos véhicules dans ${NameApp}.`,
   },
   // Ajoute d'autres routes ici...
 };
@@ -180,6 +185,16 @@ export default function App() {
             <ProtectedAdminRoute>
               <AppLayout>
                 <EntretienPage />
+              </AppLayout>
+            </ProtectedAdminRoute>
+          }
+        />
+        <Route
+          path="/statistiques"
+          element={
+            <ProtectedAdminRoute>
+              <AppLayout>
+                <StatisticsPage />
               </AppLayout>
             </ProtectedAdminRoute>
           }

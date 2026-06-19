@@ -73,16 +73,23 @@ const FuelPieChart = ({ releverDetails, compact = false }) => {
           </div>
         </div>
         {compact && (
-          <div className="w-28 shrink-0 space-y-3">
+          <div className="w-40 shrink-0 space-y-3">
             {labels.map((label, index) => (
               <div key={label} className="text-sm">
                 <div className="flex items-center gap-2 text-slate-200">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: backgroundColor[index] }} />
-                  <span className="truncate">{label}</span>
+                  <span className="min-w-0 flex-1 truncate">{label}</span>
+                  <span className="text-xs font-semibold text-slate-400">{Math.round((data[index] / total) * 100)}%</span>
                 </div>
-                <p className="mt-1 pl-4 text-xs text-slate-500">
-                  {Math.round((data[index] / total) * 100)}%
-                </p>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.round((data[index] / total) * 100)}%`,
+                      backgroundColor: backgroundColor[index],
+                    }}
+                  />
+                </div>
               </div>
             ))}
           </div>
