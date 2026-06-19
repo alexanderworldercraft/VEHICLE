@@ -238,7 +238,7 @@ function SidebarContent({ user, activeVehicles, soldVehicles, closeMenu, isPriva
     { name: 'Relevés', href: '/relever', icon: ChartBarIcon, disabled: isPrivacyMode, disabledTitle: 'Verrouillé par Shield Mode' },
     { name: 'Simulations', href: '/simulation', icon: ArrowPathIcon },
     { name: 'Entretien', href: '/entretien', icon: WrenchScrewdriverIcon },
-    { name: 'Statistiques', icon: ChartBarIcon, disabled: true },
+    { name: 'Statistiques', href: '/statistiques', icon: ChartBarIcon },
     { name: 'Paramètres', href: '/settings', icon: Cog6ToothIcon, disabled: isPrivacyMode, disabledTitle: 'Verrouillé par Shield Mode' },
   ];
 
@@ -373,6 +373,7 @@ export default function Navbar() {
     if (location.pathname === '/relever') return 'vos relevés';
     if (location.pathname === '/simulation') return 'vos simulations';
     if (location.pathname === '/entretien') return 'vos entretiens';
+    if (location.pathname === '/statistiques') return 'vos statistiques';
     if (location.pathname === '/settings') return 'vos paramètres';
     if (location.pathname === '/updates') return 'les mises à jour';
     if (location.pathname === '/vehicule') return 'vos véhicules';
