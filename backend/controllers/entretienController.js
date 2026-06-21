@@ -29,6 +29,8 @@ const parseOptionalFloat = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const parseBoolean = (value) => value === true || value === 'true' || value === '1' || value === 1;
+
 const normalizeDate = (value) => {
   if (!value) return null;
   const date = new Date(value);
@@ -384,6 +386,7 @@ export const entretienController = {
         };
       });
       const realizedWithFiles = realized.map(normalizeEntretienWithFiles);
+      const accountableRealized = realizedWithFiles.filter((item) => !item.EstArchive);
 
       const upcomingCount = plannedWithStatus.filter((item) => {
         if (item.EstEnRetard) return false;
@@ -391,14 +394,14 @@ export const entretienController = {
         return item.KilometrePrevu !== null;
       }).length;
       const overdueCount = plannedWithStatus.filter((item) => item.EstEnRetard).length;
-      const realizedThisMonth = realizedWithFiles.filter((item) => {
+      const realizedThisMonth = accountableRealized.filter((item) => {
         const date = new Date(item.Date);
         return date >= startOfMonth(now) && date < startOfNextMonth(now);
       }).length;
-      const realizedLast12Months = realizedWithFiles.filter((item) => new Date(item.Date) >= last12Months);
+      const realizedLast12Months = accountableRealized.filter((item) => new Date(item.Date) >= last12Months);
       const totalCostLast12Months = realizedLast12Months.reduce((sum, item) => sum + (Number(item.Cout) || 0), 0);
-      const totalCostAllTime = realizedWithFiles.reduce((sum, item) => sum + (Number(item.Cout) || 0), 0);
-      const costByCategory = realizedWithFiles.reduce((acc, item) => {
+      const totalCostAllTime = accountableRealized.reduce((sum, item) => sum + (Number(item.Cout) || 0), 0);
+      const costByCategory = accountableRealized.reduce((acc, item) => {
         const category = item.EntretienType.CategorieEntretien;
         const existing = acc.get(category.CategorieEntretienID) || {
           CategorieEntretienID: category.CategorieEntretienID,
@@ -421,7 +424,8 @@ export const entretienController = {
         stats: {
           upcomingCount,
           overdueCount,
-          realizedCount: realized.length,
+          realizedCount: accountableRealized.length,
+          archivedCount: realizedWithFiles.length - accountableRealized.length,
           realizedThisMonth,
           totalCostLast12Months,
           totalCostAllTime,
@@ -449,6 +453,7 @@ export const entretienController = {
       kilometre,
       cout,
       garage,
+      estArchive,
       filesMeta,
     } = fields;
 
@@ -526,6 +531,7 @@ export const entretienController = {
             Cout: parseOptionalFloat(cout),
             Garage: garage?.trim() || null,
             Note: note?.trim() || null,
+            EstArchive: parseBoolean(estArchive),
             CreateDate: serverDate,
           },
         });
@@ -648,7 +654,7 @@ export const entretienController = {
     const userId = parseId(request.params.UtilisateurID);
     const realizedId = parseId(request.params.EntretienRealiseID);
     const { fields, files } = await readRequestPayload(request);
-    const { vehiculeId, entretienTypeId, date, kilometre, cout, garage, note, filesMeta } = fields;
+    const { vehiculeId, entretienTypeId, date, kilometre, cout, garage, note, estArchive, filesMeta } = fields;
     const vehicleId = parseId(vehiculeId);
     const typeId = parseId(entretienTypeId);
     const serverDate = new Date();
@@ -695,6 +701,7 @@ export const entretienController = {
             Cout: parseOptionalFloat(cout),
             Garage: garage?.trim() || null,
             Note: note?.trim() || null,
+            EstArchive: parseBoolean(estArchive),
             UpdateDate: serverDate,
           },
           include: { EntretienFichiers: { orderBy: { CreateDate: "asc" } } },
@@ -733,7 +740,7 @@ export const entretienController = {
     const userId = parseId(request.params.UtilisateurID);
     const plannedId = parseId(request.params.EntretienPlanifieID);
     const { fields, files } = await readRequestPayload(request);
-    const { date, kilometre, cout, garage, note, filesMeta } = fields;
+    const { date, kilometre, cout, garage, note, estArchive, filesMeta } = fields;
     const serverDate = new Date();
     const parsedFilesMeta = parseFilesMeta(filesMeta);
 
@@ -770,6 +777,7 @@ export const entretienController = {
             Cout: parseOptionalFloat(cout),
             Garage: garage?.trim() || null,
             Note: note?.trim() || null,
+            EstArchive: parseBoolean(estArchive),
             CreateDate: serverDate,
           },
         });

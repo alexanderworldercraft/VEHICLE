@@ -324,6 +324,7 @@ const buildVehicleRawDataFiles = async (vehicleId) => {
       { label: 'Cout', value: (row) => row.Cout },
       { label: 'Garage', value: (row) => row.Garage },
       { label: 'Note', value: (row) => row.Note },
+      { label: 'EstArchive', value: (row) => formatCsvBoolean(row.EstArchive) },
       { label: 'CreateDate', value: (row) => formatCsvDate(row.CreateDate) },
       { label: 'UpdateDate', value: (row) => formatCsvDate(row.UpdateDate) },
     ], vehicule.EntretienRealises),
@@ -585,6 +586,7 @@ export const vehiculeController = {
             },
           },
           EntretienRealises: {
+            where: { EstArchive: false },
             orderBy: [
               { Date: 'asc' },
               { Kilometre: 'asc' },
@@ -595,6 +597,7 @@ export const vehiculeController = {
               Date: true,
               Kilometre: true,
               Cout: true,
+              EstArchive: true,
               EntretienType: {
                 select: {
                   Nom: true,

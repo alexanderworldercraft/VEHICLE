@@ -10,8 +10,60 @@ import {
 const appName = process.env.REACT_APP_NAME || "Vehicle";
 const appVersion = process.env.REACT_APP_VER || "0.0.0";
 
-const latestUpdateResume = "ajoute une page Statistiques globale avec graphiques multi-vehicules.";
+const latestUpdateResume = "active les notifications d'entretien en retard et ajoute les archives d'entretien.";
 const updates = [
+  {
+    version: "1.17.0",
+    title: "Notifications et archives d'entretien",
+    date: "21 juin 2026",
+    sections: [
+      {
+        title: "Notifications",
+        items: [
+          "Activation du bouton Notifications de la navbar pour afficher les entretiens planifies en retard.",
+          "Ajout d'un badge compteur sur la cloche uniquement lorsqu'au moins un entretien est en retard.",
+          "Ajout d'un menu de notifications avec le vehicule, le type d'entretien et l'echeance depassee.",
+          "Ouverture directe de la page Entretien sur le detail de l'entretien concerne via un lien profond.",
+        ],
+      },
+      {
+        title: "Detail d'entretien",
+        items: [
+          "Ajout d'une modal d'information complete en lecture seule pour les entretiens planifies et realises.",
+          "Ajout d'un bouton de passage vers la modification depuis la modal d'information.",
+          "Ajout d'un bouton Marquer realise depuis la modal d'information d'un entretien planifie.",
+          "Ajout d'un bouton Voir le detail dans les sections A venir prochainement et Historique.",
+        ],
+      },
+      {
+        title: "Archives",
+        items: [
+          "Ajout de l'option Archive ancien proprietaire sur les entretiens realises.",
+          "Renommage de la section Historique recent en Historique.",
+          "Ajout d'onglets Realises et Archives pour separer les entretiens de l'utilisateur et ceux des anciens proprietaires.",
+          "Affichage d'un badge Archive sur les entretiens concernes dans l'historique et dans la modal de detail.",
+        ],
+      },
+      {
+        title: "Calculs et statistiques",
+        items: [
+          "Exclusion des archives des compteurs d'entretiens realises, du cout total et du detail des couts par categorie.",
+          "Exclusion des archives de la page Statistiques globale afin de ne pas les comptabiliser dans les valeurs utilisateur.",
+          "Conservation des archives dans l'historique du vehicule pour maintenir la trace des anciens entretiens.",
+          "Ajout du champ EstArchive dans l'export CSV des entretiens realises.",
+        ],
+      },
+      {
+        title: "API et validation",
+        items: [
+          "Ajout du champ Prisma EstArchive sur EntretienRealise avec une migration dediee.",
+          "Prise en charge de l'archive dans la creation, la modification et la completion d'un entretien.",
+          "Validation du schema Prisma apres migration.",
+          "Validation syntaxique des controleurs backend modifies et validation du build frontend.",
+        ],
+      },
+    ],
+  },
   {
     version: "1.16.0",
     title: "Page Statistiques globale",

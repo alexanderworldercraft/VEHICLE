@@ -153,6 +153,7 @@ model EntretienRealise {
   Cout      Float?
   Garage    String?  @db.VarChar(150)
   Note      String?  @db.VarChar(500)
+  EstArchive Boolean @default(false)
 
   CreateDate DateTime  @default(now())
   UpdateDate DateTime?

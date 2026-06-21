@@ -11,6 +11,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CurrencyEuroIcon,
+  EyeIcon,
   ExclamationTriangleIcon,
   FlagIcon,
   InformationCircleIcon,
@@ -980,6 +981,7 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
   const [kilometre, setKilometre] = useState('');
   const [cout, setCout] = useState('');
   const [garage, setGarage] = useState('');
+  const [estArchive, setEstArchive] = useState(false);
   const [priorite, setPriorite] = useState('Priorité moyenne');
   const [note, setNote] = useState('');
   const [pendingFiles, setPendingFiles] = useState([]);
@@ -1035,6 +1037,7 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
       setKilometre(editKind === 'realized' ? editItem.Kilometre ?? '' : editItem.KilometrePrevu ?? '');
       setCout(editKind === 'realized' ? editItem.Cout ?? '' : '');
       setGarage(editKind === 'realized' ? editItem.Garage || '' : '');
+      setEstArchive(editKind === 'realized' ? Boolean(editItem.EstArchive) : false);
       setPriorite(editItem.Priorite || 'Priorité moyenne');
       setNote(editItem.Note || '');
       setPendingFiles([]);
@@ -1056,6 +1059,7 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
     setKilometre('');
     setCout('');
     setGarage('');
+    setEstArchive(false);
     setPriorite('Priorité moyenne');
     setNote('');
     setPendingFiles([]);
@@ -1107,6 +1111,7 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
       kilometre,
       cout,
       garage,
+      estArchive: mode === 'realized' ? estArchive : false,
     };
 
     if (!pendingFiles.length) return fields;
@@ -1309,6 +1314,18 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
                           <input type="text" maxLength={150} value={garage} onChange={(event) => setGarage(event.target.value)} placeholder="Optionnel" className="mt-3 w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-600" />
                         </label>
                       </div>
+                      <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-sky-500/20 bg-slate-950/40 px-4 py-3 text-sm text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={estArchive}
+                          onChange={(event) => setEstArchive(event.target.checked)}
+                          className="mt-1 size-4 rounded border-slate-600 bg-slate-900 text-sky-500"
+                        />
+                        <span>
+                          <span className="block font-bold text-white">Archive ancien propriétaire</span>
+                          <span className="block text-slate-400">Visible dans l'historique du véhicule, mais exclu des totaux et statistiques utilisateur.</span>
+                        </span>
+                      </label>
                     </div>
                   )}
 
@@ -1466,6 +1483,128 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
   );
 }
 
+function EntretienInfoModal({ open, item, kind, isPrivacyMode, isShieldModeLevel2, onClose, onEdit, onComplete, onOpenFile }) {
+  if (!item) return null;
+
+  const isPlanned = kind === 'planned';
+  const title = item.EntretienType?.Nom || 'Entretien';
+  const category = item.EntretienType?.CategorieEntretien;
+  const timing = isPlanned ? getPlannedTiming(item, isPrivacyMode, isShieldModeLevel2) : null;
+  const files = item.EntretienFichiers || [];
+
+  return (
+    <Transition show={open} as={Fragment}>
+      <Dialog as="div" className="relative z-[100]" onClose={onClose}>
+        <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0">
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
+        </Transition.Child>
+        <div className="fixed inset-0 z-[100] overflow-y-auto p-4">
+          <div className="flex min-h-full items-center justify-center">
+            <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 translate-y-2 scale-95" enterTo="opacity-100 translate-y-0 scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 translate-y-0 scale-100" leaveTo="opacity-0 translate-y-2 scale-95">
+              <Dialog.Panel className="w-full max-w-3xl rounded-xl border border-sky-500/25 bg-slate-950 p-6 text-slate-100 shadow-2xl shadow-black/60">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-start gap-4">
+                    <span className="grid size-12 shrink-0 place-items-center rounded-lg ring-1" style={{ color: category?.Couleur || '#0ea5e9', backgroundColor: `${category?.Couleur || '#0ea5e9'}22` }}>
+                      <WrenchScrewdriverIcon className="size-6" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <Dialog.Title className="truncate text-xl font-black text-white">{title}</Dialog.Title>
+                      <p className="mt-1 text-sm text-slate-400">{getTypeDescription(item.EntretienType)}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
+                        <span className="rounded-md border border-sky-500/20 px-2.5 py-1 text-sky-200">{item.Vehicule?.Nom || 'Véhicule'}</span>
+                        {isPlanned && item.EstEnRetard && <span className="rounded-md border border-rose-400/30 bg-rose-500/10 px-2.5 py-1 text-rose-200">En retard</span>}
+                        {!isPlanned && item.EstArchive && <span className="rounded-md border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-amber-200">Archive</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <IconTooltip label="Fermer" placement="bottom" align="end">
+                    <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Fermer">
+                      <XMarkIcon className="size-6" />
+                    </button>
+                  </IconTooltip>
+                </div>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {isPlanned ? (
+                    <>
+                      <div className="rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">Échéance</p>
+                        <p className="mt-2 font-bold text-white">{timing?.primary || '-'}</p>
+                        {timing?.secondary && <p className="text-sm text-slate-400">{timing.secondary}</p>}
+                      </div>
+                      <div className="rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">Priorité</p>
+                        <p className="mt-2 font-bold text-white">{item.Priorite || '-'}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">Réalisation</p>
+                        <p className="mt-2 font-bold text-white">{formatDisplayDate(item.Date, isPrivacyMode, isShieldModeLevel2)}</p>
+                        <p className="text-sm text-slate-400">{formatDisplayNumber(item.Kilometre, 0, isPrivacyMode, isShieldModeLevel2, 'kilometers')} km</p>
+                      </div>
+                      <div className="rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">Coût / Garage</p>
+                        <p className="mt-2 font-bold text-white">{formatCurrency(item.Cout || 0, isPrivacyMode, isShieldModeLevel2)} €</p>
+                        <p className="text-sm text-slate-400">{item.Garage ? maskLevel2Value(item.Garage, isShieldModeLevel2) : '-'}</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">Note</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{item.Note ? maskLevel2Value(item.Note, isShieldModeLevel2) : 'Aucune note.'}</p>
+                </div>
+
+                {!isPrivacyMode && (
+                  <div className="mt-4 rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                    <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">Pièces jointes</p>
+                    {files.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {files.map((file) => (
+                          <button
+                            type="button"
+                            key={file.EntretienFichierID}
+                            onClick={() => onOpenFile(file)}
+                            className="inline-flex max-w-48 items-center gap-1.5 rounded-md border border-sky-500/20 px-2.5 py-1.5 text-xs font-bold text-sky-200 hover:border-sky-300/50 hover:bg-sky-500/10"
+                          >
+                            <PaperClipIcon className="size-4 shrink-0" />
+                            <span className="truncate">{file.NomOriginal}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">Aucun fichier.</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <button type="button" onClick={onClose} className="h-11 rounded-lg border border-slate-700 px-5 text-sm font-bold text-slate-200 hover:border-slate-500 hover:bg-white/5">Fermer</button>
+                  {!isPrivacyMode && isPlanned && (
+                    <button type="button" onClick={onComplete} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-emerald-500/30 px-5 text-sm font-bold text-emerald-100 hover:bg-emerald-500/10">
+                      <CheckCircleIcon className="size-5" />
+                      Marquer réalisé
+                    </button>
+                  )}
+                  {!isPrivacyMode && (
+                    <button type="button" onClick={onEdit} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-500 px-5 text-sm font-bold text-white hover:bg-sky-400">
+                      <PencilSquareIcon className="size-5" />
+                      Modifier
+                    </button>
+                  )}
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+}
+
 function EntretienPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1479,6 +1618,8 @@ function EntretienPage() {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [plannedPage, setPlannedPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
+  const [historyTab, setHistoryTab] = useState('active');
+  const [infoModal, setInfoModal] = useState(null);
   const [noteModal, setNoteModal] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
   const [fileDeleteModal, setFileDeleteModal] = useState(null);
@@ -1492,6 +1633,7 @@ function EntretienPage() {
     vehicleId: searchParams.get('vehicleId') || '',
     date: searchParams.get('date') || getDateInputValue(),
   }), [searchParams]);
+  const infoParam = searchParams.get('info') || '';
 
   const fetchOverview = async (userId) => {
     const response = await shieldFetch(`${apiUrl}/api/entretien/${userId}/overview`);
@@ -1540,6 +1682,9 @@ function EntretienPage() {
 
   const planned = useMemo(() => overview?.planned || [], [overview]);
   const realized = useMemo(() => overview?.realized || [], [overview]);
+  const activeRealized = useMemo(() => realized.filter((item) => !item.EstArchive), [realized]);
+  const archivedRealized = useMemo(() => realized.filter((item) => item.EstArchive), [realized]);
+  const historyRows = historyTab === 'archives' ? archivedRealized : activeRealized;
   const stats = useMemo(() => overview?.stats || {}, [overview]);
   const totalCost = Number(stats.totalCostAllTime ?? stats.totalCostLast12Months ?? 0);
   const costBreakdown = useMemo(() => stats.costByCategory || [], [stats]);
@@ -1548,15 +1693,15 @@ function EntretienPage() {
     return new Date(a.DatePrevue || '2999-12-31') - new Date(b.DatePrevue || '2999-12-31');
   }), [planned]);
   const plannedPageCount = Math.ceil(sortedPlanned.length / ITEMS_PER_PAGE);
-  const historyPageCount = Math.ceil(realized.length / ITEMS_PER_PAGE);
+  const historyPageCount = Math.ceil(historyRows.length / ITEMS_PER_PAGE);
   const paginatedPlanned = useMemo(() => {
     const start = (clampPage(plannedPage, plannedPageCount) - 1) * ITEMS_PER_PAGE;
     return sortedPlanned.slice(start, start + ITEMS_PER_PAGE);
   }, [plannedPage, plannedPageCount, sortedPlanned]);
   const paginatedHistory = useMemo(() => {
     const start = (clampPage(historyPage, historyPageCount) - 1) * ITEMS_PER_PAGE;
-    return realized.slice(start, start + ITEMS_PER_PAGE);
-  }, [historyPage, historyPageCount, realized]);
+    return historyRows.slice(start, start + ITEMS_PER_PAGE);
+  }, [historyPage, historyPageCount, historyRows]);
 
   useEffect(() => {
     setPlannedPage((page) => clampPage(page, plannedPageCount));
@@ -1567,6 +1712,10 @@ function EntretienPage() {
   }, [historyPageCount]);
 
   useEffect(() => {
+    setHistoryPage(1);
+  }, [historyTab]);
+
+  useEffect(() => {
     if (!isPrivacyMode) return;
     setModalOpen(false);
     setEditItem(null);
@@ -1575,6 +1724,7 @@ function EntretienPage() {
     setFileDeleteModal(null);
     setFilesModal(null);
     setFilePreviewModal(null);
+    setInfoModal(null);
   }, [isPrivacyMode]);
 
   useEffect(() => {
@@ -1583,6 +1733,20 @@ function EntretienPage() {
     setEditKind(null);
     setModalOpen(true);
   }, [overview, initialCreateValues.shouldOpen, isPrivacyMode]);
+
+  useEffect(() => {
+    if (!overview) return;
+    const match = infoParam?.match(/^(planned|realized)-(\d+)$/);
+    if (!match) return;
+
+    const [, kind, rawId] = match;
+    const id = Number(rawId);
+    const item = kind === 'planned'
+      ? planned.find((entry) => entry.EntretienPlanifieID === id)
+      : realized.find((entry) => entry.EntretienRealiseID === id);
+
+    if (item) setInfoModal({ kind, item });
+  }, [infoParam, overview, planned, realized]);
 
   const donutGradient = useMemo(() => {
     if (!costBreakdown.length || totalCost <= 0) return 'conic-gradient(#1e293b 0% 100%)';
@@ -1627,9 +1791,24 @@ function EntretienPage() {
 
   const openEditModal = (kind, item) => {
     if (isPrivacyMode) return;
+    setInfoModal(null);
     setEditItem(item);
     setEditKind(kind);
     setModalOpen(true);
+    if (searchParams.get('info')) {
+      navigate('/entretien', { replace: true });
+    }
+  };
+
+  const openInfoModal = (kind, item) => {
+    setInfoModal({ kind, item });
+  };
+
+  const closeInfoModal = () => {
+    setInfoModal(null);
+    if (infoParam) {
+      navigate('/entretien', { replace: true });
+    }
   };
 
   const closeModal = () => {
@@ -1757,7 +1936,7 @@ function EntretienPage() {
           <StatCard title="Entretiens à venir" value={stats.upcomingCount || 0} subtitle="" icon={CalendarDaysIcon} tone="bg-sky-500/15 text-sky-300 ring-sky-400/25" />
           <StatCard title="Entretiens en retard" value={stats.overdueCount || 0} subtitle="À traiter rapidement" icon={ExclamationTriangleIcon} tone="bg-amber-500/15 text-amber-300 ring-amber-400/25" />
           <StatCard title="Entretiens réalisés" value={stats.realizedCount || 0} subtitle={`${stats.realizedThisMonth || 0} ce mois-ci`} icon={CheckCircleIcon} tone="bg-violet-500/15 text-violet-300 ring-violet-400/25" />
-          <StatCard title="Coût total" value={`${formatCurrency(totalCost, isPrivacyMode, isShieldModeLevel2)} €`} subtitle="Tous les entretiens réalisés" icon={CurrencyEuroIcon} tone="bg-emerald-500/15 text-emerald-300 ring-emerald-400/25" />
+          <StatCard title="Coût total" value={`${formatCurrency(totalCost, isPrivacyMode, isShieldModeLevel2)} €`} subtitle="Archives exclues" icon={CurrencyEuroIcon} tone="bg-emerald-500/15 text-emerald-300 ring-emerald-400/25" />
         </div>
 
         <div className="space-y-5">
@@ -1814,6 +1993,11 @@ function EntretienPage() {
                         )}
                         {!isPrivacyMode && (
                           <div className="flex flex-wrap justify-start gap-2 sm:justify-end pe-5">
+                            <IconTooltip label="Voir le détail">
+                              <button type="button" onClick={() => openInfoModal('planned', item)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-500/25 px-2.5 py-1.5 text-xs font-bold text-slate-200 hover:border-slate-300/50 hover:bg-white/5" aria-label="Voir le détail">
+                                <EyeIcon className="size-4" />
+                              </button>
+                            </IconTooltip>
                             <IconTooltip label="Modifier l’entretien planifié">
                               <button type="button" onClick={() => openEditModal('planned', item)} className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/20 px-2.5 py-1.5 text-xs font-bold text-sky-200 hover:border-sky-300/50 hover:bg-sky-500/10" aria-label="Modifier l’entretien planifié">
                                 <PencilSquareIcon className="size-4" />
@@ -1913,7 +2097,20 @@ function EntretienPage() {
           </div>
 
           <section className="rounded-lg border border-sky-500/20 bg-slate-950/70 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.32)]">
-            <div className="mb-4 flex items-center justify-between"><h2 className="text-base font-bold text-white">Historique récent</h2><span className="text-xs font-bold text-sky-300">{realized.length} réalisé{realized.length > 1 ? 's' : ''}</span></div>
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-base font-bold text-white">Historique</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-500">Les archives restent visibles, mais ne sont pas comptabilisées dans vos valeurs.</p>
+              </div>
+              <div className="flex items-center gap-2 rounded-lg border border-sky-500/20 bg-slate-900/50 p-1">
+                <button type="button" onClick={() => setHistoryTab('active')} className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${historyTab === 'active' ? 'bg-sky-500 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
+                  Réalisés ({activeRealized.length})
+                </button>
+                <button type="button" onClick={() => setHistoryTab('archives')} className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${historyTab === 'archives' ? 'bg-amber-500 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
+                  Archives ({archivedRealized.length})
+                </button>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-[1080px] text-left text-sm sm:min-w-full">
                 <thead className="border-b border-sky-500/10 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4 font-bold">Date</th><th className="py-3 pr-4 font-bold">Véhicule</th><th className="py-3 pr-4 font-bold">Entretien</th><th className="py-3 pr-4 font-bold">Garage</th><th className="py-3 pr-4 font-bold">Note</th>{!isPrivacyMode && <th className="py-3 pr-4 font-bold">Fichiers</th>}<th className="py-3 pr-4 text-right font-bold">Coût</th>{!isPrivacyMode && <th className="py-3 pl-2"></th>}</tr></thead>
@@ -1922,7 +2119,10 @@ function EntretienPage() {
                     <tr key={row.EntretienRealiseID} className="text-slate-300">
                       <td className="whitespace-nowrap py-3 pr-4">{formatDisplayDate(row.Date, isPrivacyMode, isShieldModeLevel2)}</td>
                       <td className="whitespace-nowrap py-3 pr-4 text-white">{row.Vehicule?.Nom}</td>
-                      <td className="min-w-56 py-3 pr-4 text-white">{row.EntretienType?.Nom}</td>
+                      <td className="min-w-56 py-3 pr-4 text-white">
+                        <span>{row.EntretienType?.Nom}</span>
+                        {row.EstArchive && <span className="ml-2 rounded border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-200">Archive</span>}
+                      </td>
                       <td className="min-w-40 py-3 pr-4 text-slate-300">{row.Garage ? maskLevel2Value(row.Garage, isShieldModeLevel2) : '-'}</td>
                       <td className="whitespace-nowrap py-3 pr-4">
                         {row.Note ? (
@@ -1948,6 +2148,11 @@ function EntretienPage() {
                       {!isPrivacyMode && (
                         <td className="py-3 pl-2 text-right">
                           <div className="flex justify-end gap-2">
+                            <IconTooltip label="Voir le détail">
+                              <button type="button" onClick={() => openInfoModal('realized', row)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-500/25 px-2.5 py-1.5 text-xs font-bold text-slate-200 hover:border-slate-300/50 hover:bg-white/5" aria-label="Voir le détail">
+                                <EyeIcon className="size-4" />
+                              </button>
+                            </IconTooltip>
                             <IconTooltip label="Modifier l’entretien réalisé">
                               <button type="button" onClick={() => openEditModal('realized', row)} className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/20 px-2.5 py-1.5 text-xs font-bold text-sky-200 hover:border-sky-300/50 hover:bg-sky-500/10" aria-label="Modifier l’entretien réalisé">
                                 <PencilSquareIcon className="size-4" />
@@ -1963,12 +2168,12 @@ function EntretienPage() {
                       )}
                     </tr>
                   )) : (
-                    <tr><td colSpan={isPrivacyMode ? 6 : 8} className="py-8 text-center text-slate-500">Aucun entretien réalisé.</td></tr>
+                    <tr><td colSpan={isPrivacyMode ? 6 : 8} className="py-8 text-center text-slate-500">{historyTab === 'archives' ? 'Aucune archive.' : 'Aucun entretien réalisé.'}</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
-            <Pagination currentPage={historyPage} totalItems={realized.length} onPageChange={setHistoryPage} />
+            <Pagination currentPage={historyPage} totalItems={historyRows.length} onPageChange={setHistoryPage} />
           </section>
         </div>
       </div>
@@ -1984,6 +2189,17 @@ function EntretienPage() {
         onDeleteFile={requestDeleteFile}
         onOpenFile={openProtectedFile}
         isDeletingFile={isDeletingFile}
+      />
+      <EntretienInfoModal
+        open={Boolean(infoModal)}
+        item={infoModal?.item}
+        kind={infoModal?.kind}
+        isPrivacyMode={isPrivacyMode}
+        isShieldModeLevel2={isShieldModeLevel2}
+        onClose={closeInfoModal}
+        onEdit={() => openEditModal(infoModal?.kind, infoModal?.item)}
+        onComplete={() => openEditModal('complete', infoModal?.item)}
+        onOpenFile={openProtectedFile}
       />
       <NoteModal
         open={Boolean(noteModal)}
