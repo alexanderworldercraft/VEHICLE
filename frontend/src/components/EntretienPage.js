@@ -1626,6 +1626,8 @@ function EntretienPage() {
   const [filesModal, setFilesModal] = useState(null);
   const [filePreviewModal, setFilePreviewModal] = useState(null);
   const [calendarModal, setCalendarModal] = useState(null);
+  const [vehicleFilter, setVehicleFilter] = useState('all');
+  const [includeArchivedCosts, setIncludeArchivedCosts] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingFile, setIsDeletingFile] = useState(false);
   const initialCreateValues = useMemo(() => ({
@@ -1682,16 +1684,82 @@ function EntretienPage() {
 
   const planned = useMemo(() => overview?.planned || [], [overview]);
   const realized = useMemo(() => overview?.realized || [], [overview]);
-  const activeRealized = useMemo(() => realized.filter((item) => !item.EstArchive), [realized]);
-  const archivedRealized = useMemo(() => realized.filter((item) => item.EstArchive), [realized]);
+  const vehicles = useMemo(() => overview?.vehicles || [], [overview]);
+  const vehicleFilterOptions = useMemo(() => [
+    { value: 'all', label: 'Tous les véhicules', description: 'Vue globale' },
+    ...vehicles.map((vehicle) => ({
+      value: vehicle.VehiculeID,
+      label: vehicle.Nom,
+      description: [vehicle.Marque?.Nom, vehicle.Modele, vehicle.Type?.Nom].filter(Boolean).join(' · '),
+      image: getVehicleImage(vehicle),
+    })),
+  ], [vehicles]);
+  const selectedVehicleFilter = vehicleFilterOptions.find((option) => String(option.value) === String(vehicleFilter));
+  const maintenanceScopeLabel = selectedVehicleFilter?.label || 'Tous les véhicules';
+  const filterBySelectedVehicle = useCallback((item) => (
+    vehicleFilter === 'all' || String(item.VehiculeID) === String(vehicleFilter)
+  ), [vehicleFilter]);
+  const filteredPlanned = useMemo(() => planned.filter(filterBySelectedVehicle), [filterBySelectedVehicle, planned]);
+  const filteredRealized = useMemo(() => realized.filter(filterBySelectedVehicle), [filterBySelectedVehicle, realized]);
+  const activeRealized = useMemo(() => filteredRealized.filter((item) => !item.EstArchive), [filteredRealized]);
+  const archivedRealized = useMemo(() => filteredRealized.filter((item) => item.EstArchive), [filteredRealized]);
   const historyRows = historyTab === 'archives' ? archivedRealized : activeRealized;
   const stats = useMemo(() => overview?.stats || {}, [overview]);
-  const totalCost = Number(stats.totalCostAllTime ?? stats.totalCostLast12Months ?? 0);
-  const costBreakdown = useMemo(() => stats.costByCategory || [], [stats]);
-  const sortedPlanned = useMemo(() => [...planned].sort((a, b) => {
+  const filteredStats = useMemo(() => {
+    const now = new Date();
+    const next90Days = new Date(now.getTime() + 90 * DAY_IN_MS);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    return {
+      upcomingCount: filteredPlanned.filter((item) => {
+        if (item.EstEnRetard) return false;
+        if (item.DatePrevue) return new Date(item.DatePrevue) <= next90Days;
+        return item.KilometrePrevu !== null;
+      }).length,
+      overdueCount: filteredPlanned.filter((item) => item.EstEnRetard).length,
+      realizedCount: activeRealized.length,
+      realizedThisMonth: activeRealized.filter((item) => {
+        const date = new Date(item.Date);
+        return date >= monthStart && date < nextMonthStart;
+      }).length,
+      totalCostAllTime: activeRealized.reduce((sum, item) => sum + (Number(item.Cout) || 0), 0),
+    };
+  }, [activeRealized, filteredPlanned]);
+  const totalCost = Number(filteredStats.totalCostAllTime ?? stats.totalCostAllTime ?? stats.totalCostLast12Months ?? 0);
+  const filteredCostItems = useMemo(() => filteredRealized.filter((item) => {
+    if (!includeArchivedCosts && item.EstArchive) return false;
+    return true;
+  }), [filteredRealized, includeArchivedCosts]);
+  const costBreakdown = useMemo(() => {
+    const costsByCategory = filteredCostItems.reduce((acc, item) => {
+      const category = item.EntretienType?.CategorieEntretien;
+      const categoryId = category?.CategorieEntretienID || item.EntretienType?.CategorieEntretienID || 'unknown';
+      const existing = acc.get(categoryId) || {
+        CategorieEntretienID: categoryId,
+        Nom: category?.Nom || 'Sans catégorie',
+        Couleur: category?.Couleur || '#0ea5e9',
+        Icone: category?.Icone || '',
+        Cout: 0,
+      };
+      existing.Cout += Number(item.Cout) || 0;
+      acc.set(categoryId, existing);
+      return acc;
+    }, new Map());
+
+    return Array.from(costsByCategory.values()).sort((a, b) => b.Cout - a.Cout);
+  }, [filteredCostItems]);
+  const costBreakdownTotal = useMemo(() => (
+    filteredCostItems.reduce((sum, item) => sum + (Number(item.Cout) || 0), 0)
+  ), [filteredCostItems]);
+  const costBreakdownScopeLabel = [
+    maintenanceScopeLabel,
+    includeArchivedCosts ? 'archives incluses' : 'archives exclues',
+  ].join(' · ');
+  const sortedPlanned = useMemo(() => [...filteredPlanned].sort((a, b) => {
     if (a.EstEnRetard !== b.EstEnRetard) return a.EstEnRetard ? -1 : 1;
     return new Date(a.DatePrevue || '2999-12-31') - new Date(b.DatePrevue || '2999-12-31');
-  }), [planned]);
+  }), [filteredPlanned]);
   const plannedPageCount = Math.ceil(sortedPlanned.length / ITEMS_PER_PAGE);
   const historyPageCount = Math.ceil(historyRows.length / ITEMS_PER_PAGE);
   const paginatedPlanned = useMemo(() => {
@@ -1708,12 +1776,16 @@ function EntretienPage() {
   }, [plannedPageCount]);
 
   useEffect(() => {
+    setPlannedPage(1);
+  }, [vehicleFilter]);
+
+  useEffect(() => {
     setHistoryPage((page) => clampPage(page, historyPageCount));
   }, [historyPageCount]);
 
   useEffect(() => {
     setHistoryPage(1);
-  }, [historyTab]);
+  }, [historyTab, vehicleFilter]);
 
   useEffect(() => {
     if (!isPrivacyMode) return;
@@ -1749,20 +1821,20 @@ function EntretienPage() {
   }, [infoParam, overview, planned, realized]);
 
   const donutGradient = useMemo(() => {
-    if (!costBreakdown.length || totalCost <= 0) return 'conic-gradient(#1e293b 0% 100%)';
+    if (!costBreakdown.length || costBreakdownTotal <= 0) return 'conic-gradient(#1e293b 0% 100%)';
     let cursor = 0;
     const parts = costBreakdown.map((item) => {
       const start = cursor;
-      cursor += (Number(item.Cout || 0) / totalCost) * 100;
+      cursor += (Number(item.Cout || 0) / costBreakdownTotal) * 100;
       return `${item.Couleur || '#0ea5e9'} ${start}% ${cursor}%`;
     });
     return `conic-gradient(${parts.join(', ')})`;
-  }, [costBreakdown, totalCost]);
+  }, [costBreakdown, costBreakdownTotal]);
 
   const calendarDays = useMemo(() => getMonthDays(calendarDate), [calendarDate]);
   const calendarEvents = useMemo(() => {
     const map = new Map();
-    planned.forEach((item) => {
+    filteredPlanned.forEach((item) => {
       if (!item.DatePrevue) return;
       const key = getDateInputValue(new Date(item.DatePrevue));
       map.set(key, [...(map.get(key) || []), {
@@ -1771,7 +1843,7 @@ function EntretienPage() {
         item,
       }]);
     });
-    realized.forEach((item) => {
+    filteredRealized.forEach((item) => {
       const key = getDateInputValue(new Date(item.Date));
       map.set(key, [...(map.get(key) || []), {
         kind: 'realized',
@@ -1780,7 +1852,7 @@ function EntretienPage() {
       }]);
     });
     return map;
-  }, [planned, realized]);
+  }, [filteredPlanned, filteredRealized]);
 
   const openCreateModal = () => {
     if (isPrivacyMode) return;
@@ -1913,37 +1985,62 @@ function EntretienPage() {
   return (
     <main className="mx-auto max-w-7xl grow">
       <div className="space-y-6 text-slate-100">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-white">Entretien</h1>
             <p className="mt-1 text-sm text-slate-400">Planifiez, suivez et gérez tous les entretiens de vos véhicules.</p>
           </div>
-          <IconTooltip label="Ajouter un entretien">
-            <button
-              type="button"
-              onClick={openCreateModal}
-              disabled={isPrivacyMode}
-              title={isPrivacyMode ? 'Verrouillé par Shield Mode' : undefined}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-sky-300/40 bg-sky-500 text-white shadow-lg shadow-sky-950/30 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-55"
-              aria-label="Ajouter un entretien"
-            >
-              <PlusIcon className="size-5" aria-hidden="true" />
-            </button>
-          </IconTooltip>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="w-full sm:w-72">
+              <DropdownSelect
+                label="Périmètre"
+                value={vehicleFilter}
+                onChange={setVehicleFilter}
+                options={vehicleFilterOptions}
+                placeholder="Tous les véhicules"
+                searchPlaceholder="Rechercher un véhicule..."
+                renderSelected={(option) => option.label}
+                renderOption={(option) => (
+                  <>
+                    {option.image ? <img src={option.image} alt="" className="size-8 rounded-md object-cover" /> : <span className="grid size-8 place-items-center rounded-md bg-slate-900 text-xs text-slate-500">Tous</span>}
+                    <span className="min-w-0">
+                      <span className="block truncate text-slate-100">{option.label}</span>
+                      {option.description ? <span className="block truncate text-xs font-medium text-slate-500">{option.description}</span> : null}
+                    </span>
+                  </>
+                )}
+              />
+            </div>
+            <IconTooltip label="Ajouter un entretien">
+              <button
+                type="button"
+                onClick={openCreateModal}
+                disabled={isPrivacyMode}
+                title={isPrivacyMode ? 'Verrouillé par Shield Mode' : undefined}
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-sky-300/40 bg-sky-500 text-white shadow-lg shadow-sky-950/30 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-55"
+                aria-label="Ajouter un entretien"
+              >
+                <PlusIcon className="size-5" aria-hidden="true" />
+              </button>
+            </IconTooltip>
+          </div>
         </header>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Entretiens à venir" value={stats.upcomingCount || 0} subtitle="" icon={CalendarDaysIcon} tone="bg-sky-500/15 text-sky-300 ring-sky-400/25" />
-          <StatCard title="Entretiens en retard" value={stats.overdueCount || 0} subtitle="À traiter rapidement" icon={ExclamationTriangleIcon} tone="bg-amber-500/15 text-amber-300 ring-amber-400/25" />
-          <StatCard title="Entretiens réalisés" value={stats.realizedCount || 0} subtitle={`${stats.realizedThisMonth || 0} ce mois-ci`} icon={CheckCircleIcon} tone="bg-violet-500/15 text-violet-300 ring-violet-400/25" />
+          <StatCard title="Entretiens à venir" value={filteredStats.upcomingCount || 0} subtitle={maintenanceScopeLabel} icon={CalendarDaysIcon} tone="bg-sky-500/15 text-sky-300 ring-sky-400/25" />
+          <StatCard title="Entretiens en retard" value={filteredStats.overdueCount || 0} subtitle="À traiter rapidement" icon={ExclamationTriangleIcon} tone="bg-amber-500/15 text-amber-300 ring-amber-400/25" />
+          <StatCard title="Entretiens réalisés" value={filteredStats.realizedCount || 0} subtitle={`${filteredStats.realizedThisMonth || 0} ce mois-ci`} icon={CheckCircleIcon} tone="bg-violet-500/15 text-violet-300 ring-violet-400/25" />
           <StatCard title="Coût total" value={`${formatCurrency(totalCost, isPrivacyMode, isShieldModeLevel2)} €`} subtitle="Archives exclues" icon={CurrencyEuroIcon} tone="bg-emerald-500/15 text-emerald-300 ring-emerald-400/25" />
         </div>
 
         <div className="space-y-5">
           <section className="rounded-lg border border-sky-500/20 bg-slate-950/70 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.32)]">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-white">À venir prochainement</h2>
-              <span className="rounded-lg border border-sky-500/20 px-3 py-2 text-xs font-bold text-sky-300">{planned.length} planifié{planned.length > 1 ? 's' : ''}</span>
+              <div>
+                <h2 className="text-base font-bold text-white">À venir prochainement</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-500">{maintenanceScopeLabel}</p>
+              </div>
+              <span className="rounded-lg border border-sky-500/20 px-3 py-2 text-xs font-bold text-sky-300">{filteredPlanned.length} planifié{filteredPlanned.length > 1 ? 's' : ''}</span>
             </div>
             {paginatedPlanned.length ? (
               <div className="-mx-5 overflow-x-auto px-5">
@@ -2029,7 +2126,10 @@ function EntretienPage() {
           <div className="grid gap-5 xl:grid-cols-[1.1fr_1fr]">
             <section className="rounded-lg border border-sky-500/20 bg-slate-950/70 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.32)]">
               <div className="mb-5 flex items-center justify-between gap-3">
-                <h2 className="text-base font-bold text-white">Calendrier d'entretien</h2>
+                <div>
+                  <h2 className="text-base font-bold text-white">Calendrier d'entretien</h2>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{maintenanceScopeLabel}</p>
+                </div>
                 <div className="flex items-center gap-2">
                   <button type="button" className="rounded-lg border border-sky-500/20 px-3 py-2 text-xs font-semibold text-slate-300">Mois</button>
                   <IconTooltip label="Mois précédent">
@@ -2075,19 +2175,42 @@ function EntretienPage() {
             </section>
 
             <section className="rounded-lg border border-sky-500/20 bg-slate-950/70 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.32)]">
-              <div className="mb-5 flex items-center justify-between"><h2 className="text-base font-bold text-white">Répartition des coûts</h2><span className="text-xs font-bold text-sky-300">BDD</span></div>
+              <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-white">Répartition des coûts</h2>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{costBreakdownScopeLabel}</p>
+                </div>
+                <div className="flex justify-start lg:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIncludeArchivedCosts((current) => !current)}
+                    className={`inline-flex h-12 items-center justify-between gap-3 rounded-xl border px-3 text-left text-xs font-bold transition sm:min-w-44 ${includeArchivedCosts ? 'border-amber-400/45 bg-amber-500/10 text-amber-100' : 'border-sky-500/20 bg-slate-950/65 text-slate-300 hover:border-sky-400/60 hover:bg-sky-500/10'}`}
+                    aria-pressed={includeArchivedCosts}
+                  >
+                    <span>Inclure archives</span>
+                    <span className={`relative h-6 w-11 rounded-full transition ${includeArchivedCosts ? 'bg-amber-400' : 'bg-slate-700'}`}>
+                      <span className={`absolute top-1 size-4 rounded-full bg-white transition ${includeArchivedCosts ? 'left-6' : 'left-1'}`} />
+                    </span>
+                  </button>
+                </div>
+              </div>
               <div className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
                 <div className="relative mx-auto grid size-48 place-items-center rounded-full" style={{ background: donutGradient }}>
-                  <div className="grid size-28 place-items-center rounded-full bg-slate-950 text-center shadow-inner shadow-black/40"><div><p className="text-xl font-black text-white">{formatCurrency(totalCost, isPrivacyMode, isShieldModeLevel2)} €</p><p className="text-xs text-slate-500">Total</p></div></div>
+                  <div className="grid size-28 place-items-center rounded-full bg-slate-950 text-center shadow-inner shadow-black/40"><div><p className="text-xl font-black text-white">{formatCurrency(costBreakdownTotal, isPrivacyMode, isShieldModeLevel2)} €</p><p className="text-xs text-slate-500">Total</p></div></div>
                 </div>
                 <div className="space-y-3">
                   {costBreakdown.length ? costBreakdown.map((item) => {
-                    const percent = totalCost > 0 ? Math.round((Number(item.Cout || 0) / totalCost) * 100) : 0;
+                    const percent = costBreakdownTotal > 0 ? Math.round((Number(item.Cout || 0) / costBreakdownTotal) * 100) : 0;
                     return (
-                      <div key={item.CategorieEntretienID} className="grid grid-cols-[minmax(0,1fr)_80px_42px] items-center gap-3 text-sm">
-                        <span className="flex min-w-0 items-center gap-3 text-slate-300"><span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: item.Couleur || '#0ea5e9' }} /><span className="truncate">{item.Nom}</span></span>
-                        <span className="text-right font-semibold text-white">{formatCurrency(item.Cout, isPrivacyMode, isShieldModeLevel2)} €</span>
-                        <span className="text-right text-slate-400">{percent}%</span>
+                      <div key={item.CategorieEntretienID} className="space-y-2 text-sm">
+                        <div className="grid grid-cols-[minmax(0,1fr)_80px_42px] items-center gap-3">
+                          <span className="flex min-w-0 items-center gap-3 text-slate-300"><span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: item.Couleur || '#0ea5e9' }} /><span className="truncate">{item.Nom}</span></span>
+                          <span className="text-right font-semibold text-white">{formatCurrency(item.Cout, isPrivacyMode, isShieldModeLevel2)} €</span>
+                          <span className="text-right text-slate-400">{percent}%</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-800" aria-hidden="true">
+                          <div className="h-full rounded-full transition-all duration-300" style={{ width: `${percent}%`, backgroundColor: item.Couleur || '#0ea5e9' }} />
+                        </div>
                       </div>
                     );
                   }) : <p className="text-sm text-slate-500">Aucun coût enregistré.</p>}
@@ -2100,7 +2223,7 @@ function EntretienPage() {
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-base font-bold text-white">Historique</h2>
-                <p className="mt-1 text-xs font-semibold text-slate-500">Les archives restent visibles, mais ne sont pas comptabilisées dans vos valeurs.</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">{maintenanceScopeLabel} · les archives restent séparées des réalisés.</p>
               </div>
               <div className="flex items-center gap-2 rounded-lg border border-sky-500/20 bg-slate-900/50 p-1">
                 <button type="button" onClick={() => setHistoryTab('active')} className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${historyTab === 'active' ? 'bg-sky-500 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
