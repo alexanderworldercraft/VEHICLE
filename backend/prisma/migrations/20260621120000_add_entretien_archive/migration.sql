@@ -1,0 +1,1 @@
+ALTER TABLE `EntretienRealise` ADD COLUMN `EstArchive` BOOLEAN NOT NULL DEFAULT false;

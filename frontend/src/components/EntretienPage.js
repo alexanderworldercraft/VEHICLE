@@ -11,6 +11,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CurrencyEuroIcon,
+  EyeIcon,
   ExclamationTriangleIcon,
   FlagIcon,
   InformationCircleIcon,
@@ -980,6 +981,7 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
   const [kilometre, setKilometre] = useState('');
   const [cout, setCout] = useState('');
   const [garage, setGarage] = useState('');
+  const [estArchive, setEstArchive] = useState(false);
   const [priorite, setPriorite] = useState('Priorité moyenne');
   const [note, setNote] = useState('');
   const [pendingFiles, setPendingFiles] = useState([]);
@@ -1035,6 +1037,7 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
       setKilometre(editKind === 'realized' ? editItem.Kilometre ?? '' : editItem.KilometrePrevu ?? '');
       setCout(editKind === 'realized' ? editItem.Cout ?? '' : '');
       setGarage(editKind === 'realized' ? editItem.Garage || '' : '');
+      setEstArchive(editKind === 'realized' ? Boolean(editItem.EstArchive) : false);
       setPriorite(editItem.Priorite || 'Priorité moyenne');
       setNote(editItem.Note || '');
       setPendingFiles([]);
@@ -1056,6 +1059,7 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
     setKilometre('');
     setCout('');
     setGarage('');
+    setEstArchive(false);
     setPriorite('Priorité moyenne');
     setNote('');
     setPendingFiles([]);
@@ -1107,6 +1111,7 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
       kilometre,
       cout,
       garage,
+      estArchive: mode === 'realized' ? estArchive : false,
     };
 
     if (!pendingFiles.length) return fields;
@@ -1309,6 +1314,18 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
                           <input type="text" maxLength={150} value={garage} onChange={(event) => setGarage(event.target.value)} placeholder="Optionnel" className="mt-3 w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-600" />
                         </label>
                       </div>
+                      <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-sky-500/20 bg-slate-950/40 px-4 py-3 text-sm text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={estArchive}
+                          onChange={(event) => setEstArchive(event.target.checked)}
+                          className="mt-1 size-4 rounded border-slate-600 bg-slate-900 text-sky-500"
+                        />
+                        <span>
+                          <span className="block font-bold text-white">Archive ancien propriétaire</span>
+                          <span className="block text-slate-400">Visible dans l'historique du véhicule, mais exclu des totaux et statistiques utilisateur.</span>
+                        </span>
+                      </label>
                     </div>
                   )}
 
@@ -1466,6 +1483,128 @@ function AddEntretienModal({ open, onClose, overview, onCreated, editItem = null
   );
 }
 
+function EntretienInfoModal({ open, item, kind, isPrivacyMode, isShieldModeLevel2, onClose, onEdit, onComplete, onOpenFile }) {
+  if (!item) return null;
+
+  const isPlanned = kind === 'planned';
+  const title = item.EntretienType?.Nom || 'Entretien';
+  const category = item.EntretienType?.CategorieEntretien;
+  const timing = isPlanned ? getPlannedTiming(item, isPrivacyMode, isShieldModeLevel2) : null;
+  const files = item.EntretienFichiers || [];
+
+  return (
+    <Transition show={open} as={Fragment}>
+      <Dialog as="div" className="relative z-[100]" onClose={onClose}>
+        <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0">
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
+        </Transition.Child>
+        <div className="fixed inset-0 z-[100] overflow-y-auto p-4">
+          <div className="flex min-h-full items-center justify-center">
+            <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 translate-y-2 scale-95" enterTo="opacity-100 translate-y-0 scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 translate-y-0 scale-100" leaveTo="opacity-0 translate-y-2 scale-95">
+              <Dialog.Panel className="w-full max-w-3xl rounded-xl border border-sky-500/25 bg-slate-950 p-6 text-slate-100 shadow-2xl shadow-black/60">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-start gap-4">
+                    <span className="grid size-12 shrink-0 place-items-center rounded-lg ring-1" style={{ color: category?.Couleur || '#0ea5e9', backgroundColor: `${category?.Couleur || '#0ea5e9'}22` }}>
+                      <WrenchScrewdriverIcon className="size-6" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <Dialog.Title className="truncate text-xl font-black text-white">{title}</Dialog.Title>
+                      <p className="mt-1 text-sm text-slate-400">{getTypeDescription(item.EntretienType)}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
+                        <span className="rounded-md border border-sky-500/20 px-2.5 py-1 text-sky-200">{item.Vehicule?.Nom || 'Véhicule'}</span>
+                        {isPlanned && item.EstEnRetard && <span className="rounded-md border border-rose-400/30 bg-rose-500/10 px-2.5 py-1 text-rose-200">En retard</span>}
+                        {!isPlanned && item.EstArchive && <span className="rounded-md border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-amber-200">Archive</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <IconTooltip label="Fermer" placement="bottom" align="end">
+                    <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Fermer">
+                      <XMarkIcon className="size-6" />
+                    </button>
+                  </IconTooltip>
+                </div>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {isPlanned ? (
+                    <>
+                      <div className="rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">Échéance</p>
+                        <p className="mt-2 font-bold text-white">{timing?.primary || '-'}</p>
+                        {timing?.secondary && <p className="text-sm text-slate-400">{timing.secondary}</p>}
+                      </div>
+                      <div className="rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">Priorité</p>
+                        <p className="mt-2 font-bold text-white">{item.Priorite || '-'}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">Réalisation</p>
+                        <p className="mt-2 font-bold text-white">{formatDisplayDate(item.Date, isPrivacyMode, isShieldModeLevel2)}</p>
+                        <p className="text-sm text-slate-400">{formatDisplayNumber(item.Kilometre, 0, isPrivacyMode, isShieldModeLevel2, 'kilometers')} km</p>
+                      </div>
+                      <div className="rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">Coût / Garage</p>
+                        <p className="mt-2 font-bold text-white">{formatCurrency(item.Cout || 0, isPrivacyMode, isShieldModeLevel2)} €</p>
+                        <p className="text-sm text-slate-400">{item.Garage ? maskLevel2Value(item.Garage, isShieldModeLevel2) : '-'}</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">Note</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{item.Note ? maskLevel2Value(item.Note, isShieldModeLevel2) : 'Aucune note.'}</p>
+                </div>
+
+                {!isPrivacyMode && (
+                  <div className="mt-4 rounded-lg border border-sky-500/15 bg-slate-900/50 p-4">
+                    <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">Pièces jointes</p>
+                    {files.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {files.map((file) => (
+                          <button
+                            type="button"
+                            key={file.EntretienFichierID}
+                            onClick={() => onOpenFile(file)}
+                            className="inline-flex max-w-48 items-center gap-1.5 rounded-md border border-sky-500/20 px-2.5 py-1.5 text-xs font-bold text-sky-200 hover:border-sky-300/50 hover:bg-sky-500/10"
+                          >
+                            <PaperClipIcon className="size-4 shrink-0" />
+                            <span className="truncate">{file.NomOriginal}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">Aucun fichier.</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <button type="button" onClick={onClose} className="h-11 rounded-lg border border-slate-700 px-5 text-sm font-bold text-slate-200 hover:border-slate-500 hover:bg-white/5">Fermer</button>
+                  {!isPrivacyMode && isPlanned && (
+                    <button type="button" onClick={onComplete} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-emerald-500/30 px-5 text-sm font-bold text-emerald-100 hover:bg-emerald-500/10">
+                      <CheckCircleIcon className="size-5" />
+                      Marquer réalisé
+                    </button>
+                  )}
+                  {!isPrivacyMode && (
+                    <button type="button" onClick={onEdit} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-500 px-5 text-sm font-bold text-white hover:bg-sky-400">
+                      <PencilSquareIcon className="size-5" />
+                      Modifier
+                    </button>
+                  )}
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+}
+
 function EntretienPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1479,12 +1618,16 @@ function EntretienPage() {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [plannedPage, setPlannedPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
+  const [historyTab, setHistoryTab] = useState('active');
+  const [infoModal, setInfoModal] = useState(null);
   const [noteModal, setNoteModal] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
   const [fileDeleteModal, setFileDeleteModal] = useState(null);
   const [filesModal, setFilesModal] = useState(null);
   const [filePreviewModal, setFilePreviewModal] = useState(null);
   const [calendarModal, setCalendarModal] = useState(null);
+  const [vehicleFilter, setVehicleFilter] = useState('all');
+  const [includeArchivedCosts, setIncludeArchivedCosts] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingFile, setIsDeletingFile] = useState(false);
   const initialCreateValues = useMemo(() => ({
@@ -1492,6 +1635,7 @@ function EntretienPage() {
     vehicleId: searchParams.get('vehicleId') || '',
     date: searchParams.get('date') || getDateInputValue(),
   }), [searchParams]);
+  const infoParam = searchParams.get('info') || '';
 
   const fetchOverview = async (userId) => {
     const response = await shieldFetch(`${apiUrl}/api/entretien/${userId}/overview`);
@@ -1540,31 +1684,108 @@ function EntretienPage() {
 
   const planned = useMemo(() => overview?.planned || [], [overview]);
   const realized = useMemo(() => overview?.realized || [], [overview]);
+  const vehicles = useMemo(() => overview?.vehicles || [], [overview]);
+  const vehicleFilterOptions = useMemo(() => [
+    { value: 'all', label: 'Tous les véhicules', description: 'Vue globale' },
+    ...vehicles.map((vehicle) => ({
+      value: vehicle.VehiculeID,
+      label: vehicle.Nom,
+      description: [vehicle.Marque?.Nom, vehicle.Modele, vehicle.Type?.Nom].filter(Boolean).join(' · '),
+      image: getVehicleImage(vehicle),
+    })),
+  ], [vehicles]);
+  const selectedVehicleFilter = vehicleFilterOptions.find((option) => String(option.value) === String(vehicleFilter));
+  const maintenanceScopeLabel = selectedVehicleFilter?.label || 'Tous les véhicules';
+  const filterBySelectedVehicle = useCallback((item) => (
+    vehicleFilter === 'all' || String(item.VehiculeID) === String(vehicleFilter)
+  ), [vehicleFilter]);
+  const filteredPlanned = useMemo(() => planned.filter(filterBySelectedVehicle), [filterBySelectedVehicle, planned]);
+  const filteredRealized = useMemo(() => realized.filter(filterBySelectedVehicle), [filterBySelectedVehicle, realized]);
+  const activeRealized = useMemo(() => filteredRealized.filter((item) => !item.EstArchive), [filteredRealized]);
+  const archivedRealized = useMemo(() => filteredRealized.filter((item) => item.EstArchive), [filteredRealized]);
+  const historyRows = historyTab === 'archives' ? archivedRealized : activeRealized;
   const stats = useMemo(() => overview?.stats || {}, [overview]);
-  const totalCost = Number(stats.totalCostAllTime ?? stats.totalCostLast12Months ?? 0);
-  const costBreakdown = useMemo(() => stats.costByCategory || [], [stats]);
-  const sortedPlanned = useMemo(() => [...planned].sort((a, b) => {
+  const filteredStats = useMemo(() => {
+    const now = new Date();
+    const next90Days = new Date(now.getTime() + 90 * DAY_IN_MS);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    return {
+      upcomingCount: filteredPlanned.filter((item) => {
+        if (item.EstEnRetard) return false;
+        if (item.DatePrevue) return new Date(item.DatePrevue) <= next90Days;
+        return item.KilometrePrevu !== null;
+      }).length,
+      overdueCount: filteredPlanned.filter((item) => item.EstEnRetard).length,
+      realizedCount: activeRealized.length,
+      realizedThisMonth: activeRealized.filter((item) => {
+        const date = new Date(item.Date);
+        return date >= monthStart && date < nextMonthStart;
+      }).length,
+      totalCostAllTime: activeRealized.reduce((sum, item) => sum + (Number(item.Cout) || 0), 0),
+    };
+  }, [activeRealized, filteredPlanned]);
+  const totalCost = Number(filteredStats.totalCostAllTime ?? stats.totalCostAllTime ?? stats.totalCostLast12Months ?? 0);
+  const filteredCostItems = useMemo(() => filteredRealized.filter((item) => {
+    if (!includeArchivedCosts && item.EstArchive) return false;
+    return true;
+  }), [filteredRealized, includeArchivedCosts]);
+  const costBreakdown = useMemo(() => {
+    const costsByCategory = filteredCostItems.reduce((acc, item) => {
+      const category = item.EntretienType?.CategorieEntretien;
+      const categoryId = category?.CategorieEntretienID || item.EntretienType?.CategorieEntretienID || 'unknown';
+      const existing = acc.get(categoryId) || {
+        CategorieEntretienID: categoryId,
+        Nom: category?.Nom || 'Sans catégorie',
+        Couleur: category?.Couleur || '#0ea5e9',
+        Icone: category?.Icone || '',
+        Cout: 0,
+      };
+      existing.Cout += Number(item.Cout) || 0;
+      acc.set(categoryId, existing);
+      return acc;
+    }, new Map());
+
+    return Array.from(costsByCategory.values()).sort((a, b) => b.Cout - a.Cout);
+  }, [filteredCostItems]);
+  const costBreakdownTotal = useMemo(() => (
+    filteredCostItems.reduce((sum, item) => sum + (Number(item.Cout) || 0), 0)
+  ), [filteredCostItems]);
+  const costBreakdownScopeLabel = [
+    maintenanceScopeLabel,
+    includeArchivedCosts ? 'archives incluses' : 'archives exclues',
+  ].join(' · ');
+  const sortedPlanned = useMemo(() => [...filteredPlanned].sort((a, b) => {
     if (a.EstEnRetard !== b.EstEnRetard) return a.EstEnRetard ? -1 : 1;
     return new Date(a.DatePrevue || '2999-12-31') - new Date(b.DatePrevue || '2999-12-31');
-  }), [planned]);
+  }), [filteredPlanned]);
   const plannedPageCount = Math.ceil(sortedPlanned.length / ITEMS_PER_PAGE);
-  const historyPageCount = Math.ceil(realized.length / ITEMS_PER_PAGE);
+  const historyPageCount = Math.ceil(historyRows.length / ITEMS_PER_PAGE);
   const paginatedPlanned = useMemo(() => {
     const start = (clampPage(plannedPage, plannedPageCount) - 1) * ITEMS_PER_PAGE;
     return sortedPlanned.slice(start, start + ITEMS_PER_PAGE);
   }, [plannedPage, plannedPageCount, sortedPlanned]);
   const paginatedHistory = useMemo(() => {
     const start = (clampPage(historyPage, historyPageCount) - 1) * ITEMS_PER_PAGE;
-    return realized.slice(start, start + ITEMS_PER_PAGE);
-  }, [historyPage, historyPageCount, realized]);
+    return historyRows.slice(start, start + ITEMS_PER_PAGE);
+  }, [historyPage, historyPageCount, historyRows]);
 
   useEffect(() => {
     setPlannedPage((page) => clampPage(page, plannedPageCount));
   }, [plannedPageCount]);
 
   useEffect(() => {
+    setPlannedPage(1);
+  }, [vehicleFilter]);
+
+  useEffect(() => {
     setHistoryPage((page) => clampPage(page, historyPageCount));
   }, [historyPageCount]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historyTab, vehicleFilter]);
 
   useEffect(() => {
     if (!isPrivacyMode) return;
@@ -1575,6 +1796,7 @@ function EntretienPage() {
     setFileDeleteModal(null);
     setFilesModal(null);
     setFilePreviewModal(null);
+    setInfoModal(null);
   }, [isPrivacyMode]);
 
   useEffect(() => {
@@ -1584,21 +1806,35 @@ function EntretienPage() {
     setModalOpen(true);
   }, [overview, initialCreateValues.shouldOpen, isPrivacyMode]);
 
+  useEffect(() => {
+    if (!overview) return;
+    const match = infoParam?.match(/^(planned|realized)-(\d+)$/);
+    if (!match) return;
+
+    const [, kind, rawId] = match;
+    const id = Number(rawId);
+    const item = kind === 'planned'
+      ? planned.find((entry) => entry.EntretienPlanifieID === id)
+      : realized.find((entry) => entry.EntretienRealiseID === id);
+
+    if (item) setInfoModal({ kind, item });
+  }, [infoParam, overview, planned, realized]);
+
   const donutGradient = useMemo(() => {
-    if (!costBreakdown.length || totalCost <= 0) return 'conic-gradient(#1e293b 0% 100%)';
+    if (!costBreakdown.length || costBreakdownTotal <= 0) return 'conic-gradient(#1e293b 0% 100%)';
     let cursor = 0;
     const parts = costBreakdown.map((item) => {
       const start = cursor;
-      cursor += (Number(item.Cout || 0) / totalCost) * 100;
+      cursor += (Number(item.Cout || 0) / costBreakdownTotal) * 100;
       return `${item.Couleur || '#0ea5e9'} ${start}% ${cursor}%`;
     });
     return `conic-gradient(${parts.join(', ')})`;
-  }, [costBreakdown, totalCost]);
+  }, [costBreakdown, costBreakdownTotal]);
 
   const calendarDays = useMemo(() => getMonthDays(calendarDate), [calendarDate]);
   const calendarEvents = useMemo(() => {
     const map = new Map();
-    planned.forEach((item) => {
+    filteredPlanned.forEach((item) => {
       if (!item.DatePrevue) return;
       const key = getDateInputValue(new Date(item.DatePrevue));
       map.set(key, [...(map.get(key) || []), {
@@ -1607,7 +1843,7 @@ function EntretienPage() {
         item,
       }]);
     });
-    realized.forEach((item) => {
+    filteredRealized.forEach((item) => {
       const key = getDateInputValue(new Date(item.Date));
       map.set(key, [...(map.get(key) || []), {
         kind: 'realized',
@@ -1616,7 +1852,7 @@ function EntretienPage() {
       }]);
     });
     return map;
-  }, [planned, realized]);
+  }, [filteredPlanned, filteredRealized]);
 
   const openCreateModal = () => {
     if (isPrivacyMode) return;
@@ -1627,9 +1863,24 @@ function EntretienPage() {
 
   const openEditModal = (kind, item) => {
     if (isPrivacyMode) return;
+    setInfoModal(null);
     setEditItem(item);
     setEditKind(kind);
     setModalOpen(true);
+    if (searchParams.get('info')) {
+      navigate('/entretien', { replace: true });
+    }
+  };
+
+  const openInfoModal = (kind, item) => {
+    setInfoModal({ kind, item });
+  };
+
+  const closeInfoModal = () => {
+    setInfoModal(null);
+    if (infoParam) {
+      navigate('/entretien', { replace: true });
+    }
   };
 
   const closeModal = () => {
@@ -1734,37 +1985,62 @@ function EntretienPage() {
   return (
     <main className="mx-auto max-w-7xl grow">
       <div className="space-y-6 text-slate-100">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-white">Entretien</h1>
             <p className="mt-1 text-sm text-slate-400">Planifiez, suivez et gérez tous les entretiens de vos véhicules.</p>
           </div>
-          <IconTooltip label="Ajouter un entretien">
-            <button
-              type="button"
-              onClick={openCreateModal}
-              disabled={isPrivacyMode}
-              title={isPrivacyMode ? 'Verrouillé par Shield Mode' : undefined}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-sky-300/40 bg-sky-500 text-white shadow-lg shadow-sky-950/30 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-55"
-              aria-label="Ajouter un entretien"
-            >
-              <PlusIcon className="size-5" aria-hidden="true" />
-            </button>
-          </IconTooltip>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="w-full sm:w-72">
+              <DropdownSelect
+                label="Périmètre"
+                value={vehicleFilter}
+                onChange={setVehicleFilter}
+                options={vehicleFilterOptions}
+                placeholder="Tous les véhicules"
+                searchPlaceholder="Rechercher un véhicule..."
+                renderSelected={(option) => option.label}
+                renderOption={(option) => (
+                  <>
+                    {option.image ? <img src={option.image} alt="" className="size-8 rounded-md object-cover" /> : <span className="grid size-8 place-items-center rounded-md bg-slate-900 text-xs text-slate-500">Tous</span>}
+                    <span className="min-w-0">
+                      <span className="block truncate text-slate-100">{option.label}</span>
+                      {option.description ? <span className="block truncate text-xs font-medium text-slate-500">{option.description}</span> : null}
+                    </span>
+                  </>
+                )}
+              />
+            </div>
+            <IconTooltip label="Ajouter un entretien">
+              <button
+                type="button"
+                onClick={openCreateModal}
+                disabled={isPrivacyMode}
+                title={isPrivacyMode ? 'Verrouillé par Shield Mode' : undefined}
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-sky-300/40 bg-sky-500 text-white shadow-lg shadow-sky-950/30 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-55"
+                aria-label="Ajouter un entretien"
+              >
+                <PlusIcon className="size-5" aria-hidden="true" />
+              </button>
+            </IconTooltip>
+          </div>
         </header>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Entretiens à venir" value={stats.upcomingCount || 0} subtitle="" icon={CalendarDaysIcon} tone="bg-sky-500/15 text-sky-300 ring-sky-400/25" />
-          <StatCard title="Entretiens en retard" value={stats.overdueCount || 0} subtitle="À traiter rapidement" icon={ExclamationTriangleIcon} tone="bg-amber-500/15 text-amber-300 ring-amber-400/25" />
-          <StatCard title="Entretiens réalisés" value={stats.realizedCount || 0} subtitle={`${stats.realizedThisMonth || 0} ce mois-ci`} icon={CheckCircleIcon} tone="bg-violet-500/15 text-violet-300 ring-violet-400/25" />
-          <StatCard title="Coût total" value={`${formatCurrency(totalCost, isPrivacyMode, isShieldModeLevel2)} €`} subtitle="Tous les entretiens réalisés" icon={CurrencyEuroIcon} tone="bg-emerald-500/15 text-emerald-300 ring-emerald-400/25" />
+          <StatCard title="Entretiens à venir" value={filteredStats.upcomingCount || 0} subtitle={maintenanceScopeLabel} icon={CalendarDaysIcon} tone="bg-sky-500/15 text-sky-300 ring-sky-400/25" />
+          <StatCard title="Entretiens en retard" value={filteredStats.overdueCount || 0} subtitle="À traiter rapidement" icon={ExclamationTriangleIcon} tone="bg-amber-500/15 text-amber-300 ring-amber-400/25" />
+          <StatCard title="Entretiens réalisés" value={filteredStats.realizedCount || 0} subtitle={`${filteredStats.realizedThisMonth || 0} ce mois-ci`} icon={CheckCircleIcon} tone="bg-violet-500/15 text-violet-300 ring-violet-400/25" />
+          <StatCard title="Coût total" value={`${formatCurrency(totalCost, isPrivacyMode, isShieldModeLevel2)} €`} subtitle="Archives exclues" icon={CurrencyEuroIcon} tone="bg-emerald-500/15 text-emerald-300 ring-emerald-400/25" />
         </div>
 
         <div className="space-y-5">
           <section className="rounded-lg border border-sky-500/20 bg-slate-950/70 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.32)]">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-white">À venir prochainement</h2>
-              <span className="rounded-lg border border-sky-500/20 px-3 py-2 text-xs font-bold text-sky-300">{planned.length} planifié{planned.length > 1 ? 's' : ''}</span>
+              <div>
+                <h2 className="text-base font-bold text-white">À venir prochainement</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-500">{maintenanceScopeLabel}</p>
+              </div>
+              <span className="rounded-lg border border-sky-500/20 px-3 py-2 text-xs font-bold text-sky-300">{filteredPlanned.length} planifié{filteredPlanned.length > 1 ? 's' : ''}</span>
             </div>
             {paginatedPlanned.length ? (
               <div className="-mx-5 overflow-x-auto px-5">
@@ -1814,6 +2090,11 @@ function EntretienPage() {
                         )}
                         {!isPrivacyMode && (
                           <div className="flex flex-wrap justify-start gap-2 sm:justify-end pe-5">
+                            <IconTooltip label="Voir le détail">
+                              <button type="button" onClick={() => openInfoModal('planned', item)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-500/25 px-2.5 py-1.5 text-xs font-bold text-slate-200 hover:border-slate-300/50 hover:bg-white/5" aria-label="Voir le détail">
+                                <EyeIcon className="size-4" />
+                              </button>
+                            </IconTooltip>
                             <IconTooltip label="Modifier l’entretien planifié">
                               <button type="button" onClick={() => openEditModal('planned', item)} className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/20 px-2.5 py-1.5 text-xs font-bold text-sky-200 hover:border-sky-300/50 hover:bg-sky-500/10" aria-label="Modifier l’entretien planifié">
                                 <PencilSquareIcon className="size-4" />
@@ -1845,7 +2126,10 @@ function EntretienPage() {
           <div className="grid gap-5 xl:grid-cols-[1.1fr_1fr]">
             <section className="rounded-lg border border-sky-500/20 bg-slate-950/70 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.32)]">
               <div className="mb-5 flex items-center justify-between gap-3">
-                <h2 className="text-base font-bold text-white">Calendrier d'entretien</h2>
+                <div>
+                  <h2 className="text-base font-bold text-white">Calendrier d'entretien</h2>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{maintenanceScopeLabel}</p>
+                </div>
                 <div className="flex items-center gap-2">
                   <button type="button" className="rounded-lg border border-sky-500/20 px-3 py-2 text-xs font-semibold text-slate-300">Mois</button>
                   <IconTooltip label="Mois précédent">
@@ -1891,19 +2175,42 @@ function EntretienPage() {
             </section>
 
             <section className="rounded-lg border border-sky-500/20 bg-slate-950/70 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.32)]">
-              <div className="mb-5 flex items-center justify-between"><h2 className="text-base font-bold text-white">Répartition des coûts</h2><span className="text-xs font-bold text-sky-300">BDD</span></div>
+              <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-white">Répartition des coûts</h2>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{costBreakdownScopeLabel}</p>
+                </div>
+                <div className="flex justify-start lg:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIncludeArchivedCosts((current) => !current)}
+                    className={`inline-flex h-12 items-center justify-between gap-3 rounded-xl border px-3 text-left text-xs font-bold transition sm:min-w-44 ${includeArchivedCosts ? 'border-amber-400/45 bg-amber-500/10 text-amber-100' : 'border-sky-500/20 bg-slate-950/65 text-slate-300 hover:border-sky-400/60 hover:bg-sky-500/10'}`}
+                    aria-pressed={includeArchivedCosts}
+                  >
+                    <span>Inclure archives</span>
+                    <span className={`relative h-6 w-11 rounded-full transition ${includeArchivedCosts ? 'bg-amber-400' : 'bg-slate-700'}`}>
+                      <span className={`absolute top-1 size-4 rounded-full bg-white transition ${includeArchivedCosts ? 'left-6' : 'left-1'}`} />
+                    </span>
+                  </button>
+                </div>
+              </div>
               <div className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
                 <div className="relative mx-auto grid size-48 place-items-center rounded-full" style={{ background: donutGradient }}>
-                  <div className="grid size-28 place-items-center rounded-full bg-slate-950 text-center shadow-inner shadow-black/40"><div><p className="text-xl font-black text-white">{formatCurrency(totalCost, isPrivacyMode, isShieldModeLevel2)} €</p><p className="text-xs text-slate-500">Total</p></div></div>
+                  <div className="grid size-28 place-items-center rounded-full bg-slate-950 text-center shadow-inner shadow-black/40"><div><p className="text-xl font-black text-white">{formatCurrency(costBreakdownTotal, isPrivacyMode, isShieldModeLevel2)} €</p><p className="text-xs text-slate-500">Total</p></div></div>
                 </div>
                 <div className="space-y-3">
                   {costBreakdown.length ? costBreakdown.map((item) => {
-                    const percent = totalCost > 0 ? Math.round((Number(item.Cout || 0) / totalCost) * 100) : 0;
+                    const percent = costBreakdownTotal > 0 ? Math.round((Number(item.Cout || 0) / costBreakdownTotal) * 100) : 0;
                     return (
-                      <div key={item.CategorieEntretienID} className="grid grid-cols-[minmax(0,1fr)_80px_42px] items-center gap-3 text-sm">
-                        <span className="flex min-w-0 items-center gap-3 text-slate-300"><span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: item.Couleur || '#0ea5e9' }} /><span className="truncate">{item.Nom}</span></span>
-                        <span className="text-right font-semibold text-white">{formatCurrency(item.Cout, isPrivacyMode, isShieldModeLevel2)} €</span>
-                        <span className="text-right text-slate-400">{percent}%</span>
+                      <div key={item.CategorieEntretienID} className="space-y-2 text-sm">
+                        <div className="grid grid-cols-[minmax(0,1fr)_80px_42px] items-center gap-3">
+                          <span className="flex min-w-0 items-center gap-3 text-slate-300"><span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: item.Couleur || '#0ea5e9' }} /><span className="truncate">{item.Nom}</span></span>
+                          <span className="text-right font-semibold text-white">{formatCurrency(item.Cout, isPrivacyMode, isShieldModeLevel2)} €</span>
+                          <span className="text-right text-slate-400">{percent}%</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-800" aria-hidden="true">
+                          <div className="h-full rounded-full transition-all duration-300" style={{ width: `${percent}%`, backgroundColor: item.Couleur || '#0ea5e9' }} />
+                        </div>
                       </div>
                     );
                   }) : <p className="text-sm text-slate-500">Aucun coût enregistré.</p>}
@@ -1913,7 +2220,20 @@ function EntretienPage() {
           </div>
 
           <section className="rounded-lg border border-sky-500/20 bg-slate-950/70 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.32)]">
-            <div className="mb-4 flex items-center justify-between"><h2 className="text-base font-bold text-white">Historique récent</h2><span className="text-xs font-bold text-sky-300">{realized.length} réalisé{realized.length > 1 ? 's' : ''}</span></div>
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-base font-bold text-white">Historique</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-500">{maintenanceScopeLabel} · les archives restent séparées des réalisés.</p>
+              </div>
+              <div className="flex items-center gap-2 rounded-lg border border-sky-500/20 bg-slate-900/50 p-1">
+                <button type="button" onClick={() => setHistoryTab('active')} className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${historyTab === 'active' ? 'bg-sky-500 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
+                  Réalisés ({activeRealized.length})
+                </button>
+                <button type="button" onClick={() => setHistoryTab('archives')} className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${historyTab === 'archives' ? 'bg-amber-500 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
+                  Archives ({archivedRealized.length})
+                </button>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-[1080px] text-left text-sm sm:min-w-full">
                 <thead className="border-b border-sky-500/10 text-xs uppercase text-slate-500"><tr><th className="py-3 pr-4 font-bold">Date</th><th className="py-3 pr-4 font-bold">Véhicule</th><th className="py-3 pr-4 font-bold">Entretien</th><th className="py-3 pr-4 font-bold">Garage</th><th className="py-3 pr-4 font-bold">Note</th>{!isPrivacyMode && <th className="py-3 pr-4 font-bold">Fichiers</th>}<th className="py-3 pr-4 text-right font-bold">Coût</th>{!isPrivacyMode && <th className="py-3 pl-2"></th>}</tr></thead>
@@ -1922,7 +2242,10 @@ function EntretienPage() {
                     <tr key={row.EntretienRealiseID} className="text-slate-300">
                       <td className="whitespace-nowrap py-3 pr-4">{formatDisplayDate(row.Date, isPrivacyMode, isShieldModeLevel2)}</td>
                       <td className="whitespace-nowrap py-3 pr-4 text-white">{row.Vehicule?.Nom}</td>
-                      <td className="min-w-56 py-3 pr-4 text-white">{row.EntretienType?.Nom}</td>
+                      <td className="min-w-56 py-3 pr-4 text-white">
+                        <span>{row.EntretienType?.Nom}</span>
+                        {row.EstArchive && <span className="ml-2 rounded border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-200">Archive</span>}
+                      </td>
                       <td className="min-w-40 py-3 pr-4 text-slate-300">{row.Garage ? maskLevel2Value(row.Garage, isShieldModeLevel2) : '-'}</td>
                       <td className="whitespace-nowrap py-3 pr-4">
                         {row.Note ? (
@@ -1948,6 +2271,11 @@ function EntretienPage() {
                       {!isPrivacyMode && (
                         <td className="py-3 pl-2 text-right">
                           <div className="flex justify-end gap-2">
+                            <IconTooltip label="Voir le détail">
+                              <button type="button" onClick={() => openInfoModal('realized', row)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-500/25 px-2.5 py-1.5 text-xs font-bold text-slate-200 hover:border-slate-300/50 hover:bg-white/5" aria-label="Voir le détail">
+                                <EyeIcon className="size-4" />
+                              </button>
+                            </IconTooltip>
                             <IconTooltip label="Modifier l’entretien réalisé">
                               <button type="button" onClick={() => openEditModal('realized', row)} className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/20 px-2.5 py-1.5 text-xs font-bold text-sky-200 hover:border-sky-300/50 hover:bg-sky-500/10" aria-label="Modifier l’entretien réalisé">
                                 <PencilSquareIcon className="size-4" />
@@ -1963,12 +2291,12 @@ function EntretienPage() {
                       )}
                     </tr>
                   )) : (
-                    <tr><td colSpan={isPrivacyMode ? 6 : 8} className="py-8 text-center text-slate-500">Aucun entretien réalisé.</td></tr>
+                    <tr><td colSpan={isPrivacyMode ? 6 : 8} className="py-8 text-center text-slate-500">{historyTab === 'archives' ? 'Aucune archive.' : 'Aucun entretien réalisé.'}</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
-            <Pagination currentPage={historyPage} totalItems={realized.length} onPageChange={setHistoryPage} />
+            <Pagination currentPage={historyPage} totalItems={historyRows.length} onPageChange={setHistoryPage} />
           </section>
         </div>
       </div>
@@ -1984,6 +2312,17 @@ function EntretienPage() {
         onDeleteFile={requestDeleteFile}
         onOpenFile={openProtectedFile}
         isDeletingFile={isDeletingFile}
+      />
+      <EntretienInfoModal
+        open={Boolean(infoModal)}
+        item={infoModal?.item}
+        kind={infoModal?.kind}
+        isPrivacyMode={isPrivacyMode}
+        isShieldModeLevel2={isShieldModeLevel2}
+        onClose={closeInfoModal}
+        onEdit={() => openEditModal(infoModal?.kind, infoModal?.item)}
+        onComplete={() => openEditModal('complete', infoModal?.item)}
+        onOpenFile={openProtectedFile}
       />
       <NoteModal
         open={Boolean(noteModal)}

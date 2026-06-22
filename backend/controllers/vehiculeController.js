@@ -214,6 +214,11 @@ const getPlannedMaintenanceLabel = (entretienPlanifie) => {
   return details.join(' - ');
 };
 
+const getMaintenanceArchiveFolder = (kind, entretienId) => {
+  if (!entretienId) return '';
+  return `entretiens/${kind}/${entretienId}`;
+};
+
 const buildVehicleRawDataFiles = async (vehicleId) => {
   const rootFolderName = `vehicule-${vehicleId}`;
   const vehicule = await prisma.vehicule.findUnique({
@@ -297,6 +302,7 @@ const buildVehicleRawDataFiles = async (vehicleId) => {
       { label: 'UpdateDate', value: (row) => formatCsvDate(row.UpdateDate) },
     ], vehicule.releves),
     createCsvFile(rootFolderName, 'entretiens_planifies.csv', [
+      { label: 'DossierEntretien', value: (row) => getMaintenanceArchiveFolder('planifies', row.EntretienPlanifieID) },
       { label: 'Vehicule', value: () => vehicule.Nom },
       { label: 'EntretienType', value: (row) => row.EntretienType?.Nom },
       { label: 'Categorie', value: (row) => row.EntretienType?.CategorieEntretien?.Nom },
@@ -312,6 +318,7 @@ const buildVehicleRawDataFiles = async (vehicleId) => {
       { label: 'UpdateDate', value: (row) => formatCsvDate(row.UpdateDate) },
     ], vehicule.EntretienPlanifies),
     createCsvFile(rootFolderName, 'entretiens_realises.csv', [
+      { label: 'DossierEntretien', value: (row) => getMaintenanceArchiveFolder('realises', row.EntretienRealiseID) },
       { label: 'Vehicule', value: () => vehicule.Nom },
       { label: 'EntretienType', value: (row) => row.EntretienType?.Nom },
       { label: 'Categorie', value: (row) => row.EntretienType?.CategorieEntretien?.Nom },
@@ -324,6 +331,7 @@ const buildVehicleRawDataFiles = async (vehicleId) => {
       { label: 'Cout', value: (row) => row.Cout },
       { label: 'Garage', value: (row) => row.Garage },
       { label: 'Note', value: (row) => row.Note },
+      { label: 'EstArchive', value: (row) => formatCsvBoolean(row.EstArchive) },
       { label: 'CreateDate', value: (row) => formatCsvDate(row.CreateDate) },
       { label: 'UpdateDate', value: (row) => formatCsvDate(row.UpdateDate) },
     ], vehicule.EntretienRealises),
@@ -585,6 +593,7 @@ export const vehiculeController = {
             },
           },
           EntretienRealises: {
+            where: { EstArchive: false },
             orderBy: [
               { Date: 'asc' },
               { Kilometre: 'asc' },
@@ -595,6 +604,7 @@ export const vehiculeController = {
               Date: true,
               Kilometre: true,
               Cout: true,
+              EstArchive: true,
               EntretienType: {
                 select: {
                   Nom: true,

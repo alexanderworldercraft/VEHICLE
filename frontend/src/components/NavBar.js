@@ -35,6 +35,20 @@ function getUserImageSrc(user) {
   return user.CheminImage;
 }
 
+function formatNotificationDate(value) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('fr-FR').format(new Date(value));
+}
+
+function getNotificationReason(item) {
+  const reasons = [];
+  if (item.DatePrevue) reasons.push(`prévu le ${formatNotificationDate(item.DatePrevue)}`);
+  if (item.KilometrePrevu !== null && item.KilometrePrevu !== undefined) {
+    reasons.push(`${new Intl.NumberFormat('fr-FR').format(Number(item.KilometrePrevu))} km`);
+  }
+  return reasons.join(' ou ') || 'échéance dépassée';
+}
+
 function VehicleLogo() {
   return (
     <Link to="/vehicule" className="flex items-center gap-3" aria-label="Vehicle">
@@ -285,6 +299,7 @@ export default function Navbar() {
   const [user, setUser] = useState(null);
   const [activeVehicles, setActiveVehicles] = useState([]);
   const [soldVehicles, setSoldVehicles] = useState([]);
+  const [overdueMaintenances, setOverdueMaintenances] = useState([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unlockModalOpen, setUnlockModalOpen] = useState(false);
   const [unlockPassword, setUnlockPassword] = useState('');
@@ -330,6 +345,27 @@ export default function Navbar() {
 
     fetchVehicles();
   }, [user, location.pathname, location.search]);
+
+  useEffect(() => {
+    const fetchMaintenanceNotifications = async () => {
+      if (!user?.UtilisateurID || isPrivacyMode) {
+        setOverdueMaintenances([]);
+        return;
+      }
+
+      try {
+        const response = await shieldFetch(`${apiBaseUrl}/api/entretien/${user.UtilisateurID}/overview`);
+        if (!response.ok) throw new Error('Failed to fetch maintenance notifications');
+        const result = await response.json();
+        setOverdueMaintenances((result.planned || []).filter((item) => item.EstEnRetard));
+      } catch (error) {
+        console.error('Failed to fetch maintenance notifications:', error);
+        setOverdueMaintenances([]);
+      }
+    };
+
+    fetchMaintenanceNotifications();
+  }, [user, isPrivacyMode, location.pathname, location.search]);
 
   const handleShieldToggle = () => {
     if (!isPrivacyMode) {
@@ -464,14 +500,46 @@ export default function Navbar() {
               <span className="hidden sm:inline">{isShieldModeLevel2 ? 'Shield 2 actif' : isPrivacyMode ? 'Shield actif' : 'Shield'}</span>
             </button>
 
-            <button
-              type="button"
-              className="relative rounded-xl border border-sky-500/20 bg-slate-900/70 p-2.5 text-slate-300 transition hover:border-sky-400/45 hover:bg-sky-500/10 hover:text-white"
-            >
-              <span className="sr-only">Notifications</span>
-              <BellIcon className="size-5" aria-hidden="true" />
-              <span className="absolute right-2 top-2 size-2 rounded-full bg-red-500 ring-2 ring-slate-950" />
-            </button>
+            <Menu as="div" className="relative">
+              <Menu.Button className="relative rounded-xl border border-sky-500/20 bg-slate-900/70 p-2.5 text-slate-300 transition hover:border-sky-400/45 hover:bg-sky-500/10 hover:text-white">
+                <span className="sr-only">Notifications</span>
+                <BellIcon className="size-5" aria-hidden="true" />
+                {overdueMaintenances.length > 0 && (
+                  <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white ring-2 ring-slate-950">
+                    {overdueMaintenances.length > 9 ? '9+' : overdueMaintenances.length}
+                  </span>
+                )}
+              </Menu.Button>
+              <Menu.Items className="absolute right-0 mt-2 w-80 overflow-hidden rounded-xl border border-sky-500/20 bg-slate-950 text-sm shadow-2xl shadow-sky-950/50 focus:outline-none">
+                <div className="border-b border-white/10 px-4 py-3">
+                  <p className="font-black text-white">Notifications</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">Entretiens planifiés en retard</p>
+                </div>
+                {overdueMaintenances.length ? (
+                  <div className="max-h-96 overflow-auto py-2">
+                    {overdueMaintenances.map((item) => (
+                      <Menu.Item key={item.EntretienPlanifieID}>
+                        {({ active }) => (
+                          <Link
+                            to={`/entretien?info=planned-${item.EntretienPlanifieID}`}
+                            className={classNames(
+                              'block px-4 py-3 transition',
+                              active ? 'bg-sky-500/10' : ''
+                            )}
+                          >
+                            <span className="block truncate font-bold text-white">{item.EntretienType?.Nom || 'Entretien'}</span>
+                            <span className="mt-1 block truncate text-xs font-semibold text-slate-400">{item.Vehicule?.Nom || 'Véhicule'} · {getNotificationReason(item)}</span>
+                            <span className="mt-2 inline-flex rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-bold text-rose-200">En retard</span>
+                          </Link>
+                        )}
+                      </Menu.Item>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-6 text-center text-sm font-semibold text-slate-500">Aucun entretien en retard.</div>
+                )}
+              </Menu.Items>
+            </Menu>
 
             <Menu as="div" className="relative">
               <Menu.Button className="flex items-center gap-3 rounded-xl border border-sky-500/20 bg-slate-900/70 p-1.5 pr-3 text-sm font-semibold text-slate-200 transition hover:border-sky-400/45 hover:bg-sky-500/10 hover:text-white">
